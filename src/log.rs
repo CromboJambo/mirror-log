@@ -30,7 +30,7 @@ pub fn append_stdin(conn: &Connection, source: &str) -> Result<Vec<String>> {
     let mut ids = Vec::new();
 
     for line in stdin.lock().lines() {
-        let line = line?;
+        let line = line.map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
         if !line.trim().is_empty() {
             let id = append(conn, source, &line, None)?;
             ids.push(id);

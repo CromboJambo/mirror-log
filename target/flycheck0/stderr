@@ -1,5 +1,5 @@
-   0.078125850s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint: fingerprint error for mirror-log v0.1.0 (/home/crombo/mirror-log)/Check { test: false }/TargetInner { name: "mirror-log", doc: true, ..: with_path("/home/crombo/mirror-log/src/main.rs", Edition2024) }
-   0.078154964s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint:     err: failed to read `/home/crombo/mirror-log/target/debug/.fingerprint/mirror-log-e74cd7ebe98b9f15/bin-mirror-log`
+   0.090618821s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint: fingerprint error for mirror-log v0.1.0 (/home/crombo/mirror-log)/Check { test: false }/TargetInner { name: "mirror-log", doc: true, ..: with_path("/home/crombo/mirror-log/src/main.rs", Edition2024) }
+   0.090669399s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint:     err: failed to read `/home/crombo/mirror-log/target/debug/.fingerprint/mirror-log-e74cd7ebe98b9f15/bin-mirror-log`
 
 Caused by:
     No such file or directory (os error 2)
@@ -41,8 +41,8 @@ Stack backtrace:
   24: <unknown>
   25: __libc_start_main
   26: <unknown>
-   0.090854750s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint: fingerprint error for mirror-log v0.1.0 (/home/crombo/mirror-log)/Check { test: true }/TargetInner { name: "mirror-log", doc: true, ..: with_path("/home/crombo/mirror-log/src/main.rs", Edition2024) }
-   0.090866905s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint:     err: failed to read `/home/crombo/mirror-log/target/debug/.fingerprint/mirror-log-e37f76612a625136/test-bin-mirror-log`
+   0.102174811s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint: fingerprint error for mirror-log v0.1.0 (/home/crombo/mirror-log)/Check { test: true }/TargetInner { name: "mirror-log", doc: true, ..: with_path("/home/crombo/mirror-log/src/main.rs", Edition2024) }
+   0.102183676s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint:     err: failed to read `/home/crombo/mirror-log/target/debug/.fingerprint/mirror-log-e37f76612a625136/test-bin-mirror-log`
 
 Caused by:
     No such file or directory (os error 2)
@@ -85,6 +85,4 @@ Stack backtrace:
   25: __libc_start_main
   26: <unknown>
     Checking mirror-log v0.1.0 (/home/crombo/mirror-log)
-error: could not compile `mirror-log` (bin "mirror-log" test) due to 2 previous errors
-warning: build failed, waiting for other jobs to finish...
-error: could not compile `mirror-log` (bin "mirror-log") due to 2 previous errors
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.17s
