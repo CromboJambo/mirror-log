@@ -1,0 +1,23 @@
+# SQLite databases
+*.db
+*.db-shm
+*.db-wal
+
+# Rust build artifacts
+/target/
+**/*.rs.bk
+*.pdb
+
+# Cargo lock (optional - keep if this is a binary)
+# Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

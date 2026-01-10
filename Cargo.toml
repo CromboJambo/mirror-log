@@ -4,3 +4,12 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+[rusqlite = { version = "0.32", features = ["bundled"] }
+clap = { version = "4.5", features = ["derive"] }
+uuid = { version = "1.10", features = ["v4"] }
+chrono = "0.4"
+
+[profile.release]
+strip = true
+opt-level = "z"
+lto = true

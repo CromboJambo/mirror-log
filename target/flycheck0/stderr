@@ -1,14 +1,5 @@
-   0.005912877s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint: stale: changed "/home/crombo/mirror-log/src/main.rs"
-   0.005919229s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint:           (vs) "/home/crombo/mirror-log/target/debug/.fingerprint/mirror-log-12be572ea6330bef/dep-bin-mirror-log"
-   0.005921477s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint:                FileTime { seconds: 1768012745, nanos: 726000303 } < FileTime { seconds: 1768013085, nanos: 919327938 }
-   0.005941142s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint: fingerprint dirty for mirror-log v0.1.0 (/home/crombo/mirror-log)/Check { test: false }/TargetInner { name: "mirror-log", doc: true, ..: with_path("/home/crombo/mirror-log/src/main.rs", Edition2024) }
-   0.005946290s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(StaleItem(ChangedFile { reference: "/home/crombo/mirror-log/target/debug/.fingerprint/mirror-log-12be572ea6330bef/dep-bin-mirror-log", reference_mtime: FileTime { seconds: 1768012745, nanos: 726000303 }, stale: "/home/crombo/mirror-log/src/main.rs", stale_mtime: FileTime { seconds: 1768013085, nanos: 919327938 } }))
-   0.006038877s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint: stale: changed "/home/crombo/mirror-log/src/main.rs"
-   0.006040419s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint:           (vs) "/home/crombo/mirror-log/target/debug/.fingerprint/mirror-log-241cd321e6261868/dep-test-bin-mirror-log"
-   0.006041894s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint:                FileTime { seconds: 1768012745, nanos: 726000303 } < FileTime { seconds: 1768013085, nanos: 919327938 }
-   0.006051078s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint: fingerprint dirty for mirror-log v0.1.0 (/home/crombo/mirror-log)/Check { test: true }/TargetInner { name: "mirror-log", doc: true, ..: with_path("/home/crombo/mirror-log/src/main.rs", Edition2024) }
-   0.006054127s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(StaleItem(ChangedFile { reference: "/home/crombo/mirror-log/target/debug/.fingerprint/mirror-log-241cd321e6261868/dep-test-bin-mirror-log", reference_mtime: FileTime { seconds: 1768012745, nanos: 726000303 }, stale: "/home/crombo/mirror-log/src/main.rs", stale_mtime: FileTime { seconds: 1768013085, nanos: 919327938 } }))
-    Checking mirror-log v0.1.0 (/home/crombo/mirror-log)
-error: could not compile `mirror-log` (bin "mirror-log") due to 17 previous errors
-warning: build failed, waiting for other jobs to finish...
-error: could not compile `mirror-log` (bin "mirror-log" test) due to 17 previous errors
+error: unclosed table, expected `]`
+ --> Cargo.toml:7:10
+  |
+7 | [rusqlite = { version = "0.32", features = ["bundled"] }
+  |          ^
