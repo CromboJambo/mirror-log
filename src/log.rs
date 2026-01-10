@@ -29,14 +29,22 @@ pub fn append_stdin(conn: &Connection, source: &str) -> std::io::Result<Vec<Stri
     let stdin = io::stdin();
     let mut ids = Vec::new();
 
+    // Wrap all inserts in a single transaction for speed
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+
     for line in stdin.lock().lines() {
         let line = line?;
         if !line.trim().is_empty() {
-            let id = append(conn, source, &line, None)
+            let id = append(&tx, source, &line, None)
                 .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
             ids.push(id);
         }
     }
+
+    tx.commit()
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
     Ok(ids)
 }
