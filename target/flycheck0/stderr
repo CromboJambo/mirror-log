@@ -1,88 +1,12 @@
-   0.090618821s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint: fingerprint error for mirror-log v0.1.0 (/home/crombo/mirror-log)/Check { test: false }/TargetInner { name: "mirror-log", doc: true, ..: with_path("/home/crombo/mirror-log/src/main.rs", Edition2024) }
-   0.090669399s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint:     err: failed to read `/home/crombo/mirror-log/target/debug/.fingerprint/mirror-log-e74cd7ebe98b9f15/bin-mirror-log`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: cargo_util::paths::read_bytes
-   1: cargo_util::paths::read
-   2: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   3: cargo::core::compiler::fingerprint::prepare_target
-   4: cargo::core::compiler::compile
-   5: <cargo::core::compiler::build_runner::BuildRunner>::compile
-   6: cargo::ops::cargo_compile::compile_ws
-   7: cargo::ops::cargo_compile::compile_with_exec
-   8: cargo::ops::cargo_compile::compile
-   9: cargo::commands::check::exec
-  10: <cargo::cli::Exec>::exec
-  11: cargo::main
-  12: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  13: std::rt::lang_start::<()>::{closure#0}
-  14: core::ops::function::impls::<impl core::ops::function::FnOnce<A> for &F>::call_once
-             at /rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library/core/src/ops/function.rs:287:21
-  15: std::panicking::catch_unwind::do_call
-             at /rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library/std/src/panicking.rs:590:40
-  16: std::panicking::catch_unwind
-             at /rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library/std/src/panicking.rs:553:19
-  17: std::panic::catch_unwind
-             at /rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library/std/src/panic.rs:359:14
-  18: std::rt::lang_start_internal::{{closure}}
-             at /rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library/std/src/rt.rs:175:24
-  19: std::panicking::catch_unwind::do_call
-             at /rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library/std/src/panicking.rs:590:40
-  20: std::panicking::catch_unwind
-             at /rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library/std/src/panicking.rs:553:19
-  21: std::panic::catch_unwind
-             at /rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library/std/src/panic.rs:359:14
-  22: std::rt::lang_start_internal
-             at /rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library/std/src/rt.rs:171:5
-  23: main
-  24: <unknown>
-  25: __libc_start_main
-  26: <unknown>
-   0.102174811s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint: fingerprint error for mirror-log v0.1.0 (/home/crombo/mirror-log)/Check { test: true }/TargetInner { name: "mirror-log", doc: true, ..: with_path("/home/crombo/mirror-log/src/main.rs", Edition2024) }
-   0.102183676s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint:     err: failed to read `/home/crombo/mirror-log/target/debug/.fingerprint/mirror-log-e37f76612a625136/test-bin-mirror-log`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: cargo_util::paths::read_bytes
-   1: cargo_util::paths::read
-   2: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   3: cargo::core::compiler::fingerprint::prepare_target
-   4: cargo::core::compiler::compile
-   5: <cargo::core::compiler::build_runner::BuildRunner>::compile
-   6: cargo::ops::cargo_compile::compile_ws
-   7: cargo::ops::cargo_compile::compile_with_exec
-   8: cargo::ops::cargo_compile::compile
-   9: cargo::commands::check::exec
-  10: <cargo::cli::Exec>::exec
-  11: cargo::main
-  12: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  13: std::rt::lang_start::<()>::{closure#0}
-  14: core::ops::function::impls::<impl core::ops::function::FnOnce<A> for &F>::call_once
-             at /rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library/core/src/ops/function.rs:287:21
-  15: std::panicking::catch_unwind::do_call
-             at /rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library/std/src/panicking.rs:590:40
-  16: std::panicking::catch_unwind
-             at /rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library/std/src/panicking.rs:553:19
-  17: std::panic::catch_unwind
-             at /rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library/std/src/panic.rs:359:14
-  18: std::rt::lang_start_internal::{{closure}}
-             at /rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library/std/src/rt.rs:175:24
-  19: std::panicking::catch_unwind::do_call
-             at /rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library/std/src/panicking.rs:590:40
-  20: std::panicking::catch_unwind
-             at /rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library/std/src/panicking.rs:553:19
-  21: std::panic::catch_unwind
-             at /rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library/std/src/panic.rs:359:14
-  22: std::rt::lang_start_internal
-             at /rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library/std/src/rt.rs:171:5
-  23: main
-  24: <unknown>
-  25: __libc_start_main
-  26: <unknown>
+   0.018424391s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint: stale: changed "/home/crombo/mirror-log/src/log.rs"
+   0.018432046s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint:           (vs) "/home/crombo/mirror-log/target/debug/.fingerprint/mirror-log-e74cd7ebe98b9f15/dep-bin-mirror-log"
+   0.018434016s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint:                FileTime { seconds: 1768016558, nanos: 17916625 } < FileTime { seconds: 1768016681, nanos: 222715873 }
+   0.018465651s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint: fingerprint dirty for mirror-log v0.1.0 (/home/crombo/mirror-log)/Check { test: false }/TargetInner { name: "mirror-log", doc: true, ..: with_path("/home/crombo/mirror-log/src/main.rs", Edition2024) }
+   0.018470732s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(StaleItem(ChangedFile { reference: "/home/crombo/mirror-log/target/debug/.fingerprint/mirror-log-e74cd7ebe98b9f15/dep-bin-mirror-log", reference_mtime: FileTime { seconds: 1768016558, nanos: 17916625 }, stale: "/home/crombo/mirror-log/src/log.rs", stale_mtime: FileTime { seconds: 1768016681, nanos: 222715873 } }))
+   0.019136232s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint: stale: changed "/home/crombo/mirror-log/src/log.rs"
+   0.019140230s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint:           (vs) "/home/crombo/mirror-log/target/debug/.fingerprint/mirror-log-e37f76612a625136/dep-test-bin-mirror-log"
+   0.019142225s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint:                FileTime { seconds: 1768016558, nanos: 17916625 } < FileTime { seconds: 1768016681, nanos: 222715873 }
+   0.019154410s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint: fingerprint dirty for mirror-log v0.1.0 (/home/crombo/mirror-log)/Check { test: true }/TargetInner { name: "mirror-log", doc: true, ..: with_path("/home/crombo/mirror-log/src/main.rs", Edition2024) }
+   0.019158144s  INFO prepare_target{force=false package_id=mirror-log v0.1.0 (/home/crombo/mirror-log) target="mirror-log"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(StaleItem(ChangedFile { reference: "/home/crombo/mirror-log/target/debug/.fingerprint/mirror-log-e37f76612a625136/dep-test-bin-mirror-log", reference_mtime: FileTime { seconds: 1768016558, nanos: 17916625 }, stale: "/home/crombo/mirror-log/src/log.rs", stale_mtime: FileTime { seconds: 1768016681, nanos: 222715873 } }))
     Checking mirror-log v0.1.0 (/home/crombo/mirror-log)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.17s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s

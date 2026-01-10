@@ -23,16 +23,17 @@ pub fn append(
     Ok(id)
 }
 
-pub fn append_stdin(conn: &Connection, source: &str) -> Result<Vec<String>> {
+pub fn append_stdin(conn: &Connection, source: &str) -> std::io::Result<Vec<String>> {
     use std::io::{self, BufRead};
 
     let stdin = io::stdin();
     let mut ids = Vec::new();
 
     for line in stdin.lock().lines() {
-        let line = line.map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+        let line = line?;
         if !line.trim().is_empty() {
-            let id = append(conn, source, &line, None)?;
+            let id = append(conn, source, &line, None)
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
             ids.push(id);
         }
     }
