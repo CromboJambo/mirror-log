@@ -78,13 +78,15 @@ fn main() {
             println!("Added: {}", id);
         }
 
-        Commands::Stdin { source } => {
-            let ids = log::append_stdin(&conn, &source).expect("Failed to read from stdin");
-            println!("Added {} events", ids.len());
-            for id in ids {
-                println!("  {}", id);
+        Commands::Stdin { source } => match log::append_stdin(&conn, &source) {
+            Ok(ids) => {
+                println!("Added {} events", ids.len());
             }
-        }
+            Err(e) => {
+                eprintln!("Failed to read from stdin: {}", e);
+                std::process::exit(1);
+            }
+        },
 
         Commands::Show { last, source } => {
             let events = if let Some(src) = source {
