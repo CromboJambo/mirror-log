@@ -58,12 +58,18 @@ enum Commands {
 
         #[arg(short, long)]
         source: Option<String>,
+
+        #[arg(short, long)]
+        preview: Option<usize>,
     },
 
     /// Search events by content
     Search {
         /// Search term
         term: String,
+
+        #[arg(short, long)]
+        preview: Option<usize>,
     },
 
     /// Get a specific event by ID
@@ -112,7 +118,11 @@ fn main() {
             }
         }
 
-        Commands::Show { last, source } => {
+        Commands::Show {
+            last,
+            source,
+            preview,
+        } => {
             let events = if let Some(src) = source {
                 view::by_source(&conn, &src, Some(last)).expect("Failed to query events")
             } else {
@@ -125,7 +135,13 @@ fn main() {
                 for event in events {
                     println!("\n[{}] {}", event.format_time(), event.source);
                     println!("ID: {}", event.id);
-                    println!("{}", event.content);
+
+                    if let Some(max_chars) = preview {
+                        println!("{}", event.preview_content(max_chars));
+                    } else {
+                        println!("{}", event.content);
+                    }
+
                     if let Some(meta) = event.meta {
                         println!("Meta: {}", meta);
                     }
@@ -133,7 +149,7 @@ fn main() {
             }
         }
 
-        Commands::Search { term } => {
+        Commands::Search { term, preview } => {
             let events = view::search(&conn, &term).expect("Failed to search events");
 
             if events.is_empty() {
@@ -143,7 +159,13 @@ fn main() {
                 for event in events {
                     println!("[{}] {}", event.format_time(), event.source);
                     println!("ID: {}", event.id);
-                    println!("{}", event.content);
+
+                    if let Some(max_chars) = preview {
+                        println!("{}", event.preview_content(max_chars));
+                    } else {
+                        println!("{}", event.content);
+                    }
+
                     if let Some(meta) = event.meta {
                         println!("Meta: {}", meta);
                     }

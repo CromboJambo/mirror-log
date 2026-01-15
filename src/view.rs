@@ -15,6 +15,19 @@ impl Event {
         let dt: DateTime<Utc> = Utc.timestamp_opt(self.timestamp, 0).unwrap();
         dt.format("%Y-%m-%d %H:%M:%S UTC").to_string()
     }
+
+    pub fn preview_content(&self, max_chars: usize) -> String {
+        if self.content.len() <= max_chars {
+            self.content.clone()
+        } else {
+            format!(
+                "{}...\n\n[Content truncated: {} of {} chars shown]",
+                &self.content[..max_chars],
+                max_chars,
+                self.content.len()
+            )
+        }
+    }
 }
 
 pub fn recent(conn: &Connection, limit: i64) -> Result<Vec<Event>> {
