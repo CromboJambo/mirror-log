@@ -30,10 +30,25 @@ enum Commands {
         meta: Option<String>,
     },
 
+    /// Add a file's contents as a single event
+    AddFile {
+        /// Path to the file
+        path: std::path::PathBuf,
+
+        #[arg(short, long, default_value = "file")]
+        source: String,
+
+        #[arg(short, long)]
+        meta: Option<String>,
+    },
+
     /// Add events from stdin (one per line)
     Stdin {
         #[arg(short, long, default_value = "stdin")]
         source: String,
+
+        #[arg(short, long)]
+        meta: Option<String>,
     },
 
     /// Show recent events
@@ -78,15 +93,24 @@ fn main() {
             println!("Added: {}", id);
         }
 
-        Commands::Stdin { source } => match log::append_stdin(&conn, &source) {
-            Ok(ids) => {
-                println!("Added {} events", ids.len());
+        Commands::AddFile { path, source, meta } => {
+            let content = std::fs::read_to_string(&path).expect("Failed to read file");
+            let id = log::append(&conn, &source, &content, meta.as_deref())
+                .expect("Failed to append event");
+            println!("Added file: {} ({})", path.display(), id);
+        }
+
+        Commands::Stdin { source, meta } => {
+            match log::append_stdin(&conn, &source, meta.as_deref()) {
+                Ok(ids) => {
+                    println!("Added {} events", ids.len());
+                }
+                Err(e) => {
+                    eprintln!("Failed to read from stdin: {}", e);
+                    std::process::exit(1);
+                }
             }
-            Err(e) => {
-                eprintln!("Failed to read from stdin: {}", e);
-                std::process::exit(1);
-            }
-        },
+        }
 
         Commands::Show { last, source } => {
             let events = if let Some(src) = source {

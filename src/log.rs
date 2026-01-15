@@ -23,7 +23,11 @@ pub fn append(
     Ok(id)
 }
 
-pub fn append_stdin(conn: &Connection, source: &str) -> std::io::Result<Vec<String>> {
+pub fn append_stdin(
+    conn: &Connection,
+    source: &str,
+    meta: Option<&str>,
+) -> std::io::Result<Vec<String>> {
     use std::io::{self, BufRead};
 
     let stdin = io::stdin();
@@ -37,7 +41,7 @@ pub fn append_stdin(conn: &Connection, source: &str) -> std::io::Result<Vec<Stri
     for line in stdin.lock().lines() {
         let line = line?;
         if !line.trim().is_empty() {
-            let id = append(&tx, source, &line, None)
+            let id = append(&tx, source, &line, meta)
                 .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
             ids.push(id);
         }
