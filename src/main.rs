@@ -1,3 +1,4 @@
+mod chunk;
 mod db;
 mod log;
 mod view;
@@ -70,6 +71,9 @@ enum Commands {
 
         #[arg(short, long)]
         preview: Option<usize>,
+
+        #[arg(long)]
+        chunks: bool,
     },
 
     /// Get a specific event by ID
@@ -101,9 +105,28 @@ fn main() {
 
         Commands::AddFile { path, source, meta } => {
             let content = std::fs::read_to_string(&path).expect("Failed to read file");
+
+            let timestamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as i64;
+
             let id = log::append(&conn, &source, &content, meta.as_deref())
                 .expect("Failed to append event");
-            println!("Added file: {} ({})", path.display(), id);
+
+            // Auto-chunk large files (> 2000 chars)
+            if content.len() > 2000 {
+                let chunk_count = chunk::create_chunks(&conn, &id, &content, timestamp, 1500)
+                    .expect("Failed to create chunks");
+                println!(
+                    "Added file: {} ({}) - created {} chunks",
+                    path.display(),
+                    id,
+                    chunk_count
+                );
+            } else {
+                println!("Added file: {} ({})", path.display(), id);
+            }
         }
 
         Commands::Stdin { source, meta } => {
@@ -149,27 +172,78 @@ fn main() {
             }
         }
 
-        Commands::Search { term, preview } => {
-            let events = view::search(&conn, &term).expect("Failed to search events");
+        Commands::Search {
+            term,
+            preview,
+            chunks,
+        } => {
+            if chunks {
+                // Search chunks instead of full events
+                let found_chunks =
+                    chunk::search_chunks(&conn, &term, Some(20)).expect("Failed to search chunks");
 
-            if events.is_empty() {
-                println!("No events found matching '{}'", term);
+                if found_chunks.is_empty() {
+                    println!("No chunks found matching '{}'", term);
+                } else {
+                    println!("Found {} chunks:\n", found_chunks.len());
+                    for chunk in found_chunks {
+                        // Get parent event for context
+                        let event = view::get_by_id(&conn, &chunk.event_id)
+                            .expect("Failed to get parent event");
+
+                        println!(
+                            "[{}] {} (chunk {}/...)",
+                            event.format_time(),
+                            event.source,
+                            chunk.chunk_index + 1
+                        );
+                        println!("Event ID: {}", event.id);
+                        println!("Chunk ID: {}", chunk.id);
+
+                        if let Some(max_chars) = preview {
+                            if chunk.content.len() > max_chars {
+                                println!(
+                                    "{}...\n[{} of {} chars]",
+                                    &chunk.content[..max_chars],
+                                    max_chars,
+                                    chunk.content.len()
+                                );
+                            } else {
+                                println!("{}", chunk.content);
+                            }
+                        } else {
+                            println!("{}", chunk.content);
+                        }
+
+                        if let Some(meta) = event.meta {
+                            println!("Meta: {}", meta);
+                        }
+                        println!();
+                    }
+                }
             } else {
-                println!("Found {} events:\n", events.len());
-                for event in events {
-                    println!("[{}] {}", event.format_time(), event.source);
-                    println!("ID: {}", event.id);
+                // Original full-event search
+                let events = view::search(&conn, &term).expect("Failed to search events");
 
-                    if let Some(max_chars) = preview {
-                        println!("{}", event.preview_content(max_chars));
-                    } else {
-                        println!("{}", event.content);
-                    }
+                if events.is_empty() {
+                    println!("No events found matching '{}'", term);
+                } else {
+                    println!("Found {} events:\n", events.len());
+                    for event in events {
+                        println!("[{}] {}", event.format_time(), event.source);
+                        println!("ID: {}", event.id);
 
-                    if let Some(meta) = event.meta {
-                        println!("Meta: {}", meta);
+                        if let Some(max_chars) = preview {
+                            println!("{}", event.preview_content(max_chars));
+                        } else {
+                            println!("{}", event.content);
+                        }
+
+                        if let Some(meta) = event.meta {
+                            println!("Meta: {}", meta);
+                        }
+                        println!();
                     }
-                    println!();
                 }
             }
         }
