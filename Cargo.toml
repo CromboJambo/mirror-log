@@ -8,7 +8,7 @@ homepage = "https://github.com/CromboJambo/mirror-log"
 repository = "https://github.com/CromboJambo/mirror-log"
 authors = ["Dustin Grover <dustin@grover.com>"]
 readme = "README.md"
-keywords = ["log", "logging", "knowledge-management", "SQLite", "append-only", "mirror", "tool", "chunking", "personal"]
+keywords = ["log", "knowledge-management", "SQLite", "append-only", "chunking"]
 categories = ["command-line-utilities", "data-structures", "database"]
 
 [dependencies]
