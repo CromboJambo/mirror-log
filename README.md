@@ -19,13 +19,16 @@ Debuggable - Open mirror.db in sqlite3 anytime and understand it
 
 Installation
 
+bash
 git clone https://github.com/CromboJambo/mirror-log
 cd mirror-log
-cargo build --release``
+cargo build --release
 
 The binary will be at target/release/mirror-log.
 
 Optionally, add it to your PATH:
+
+bash
 cargo install --path .
 
 Quick Start
@@ -210,3 +213,5 @@ Contributing
 This is a personal tool first. If it's useful to you, great. If you want to contribute, open an issue and let's talk.
 
 Keep it simple. Keep it honest. Keep it debuggable.
+
+AI coding assistants from: claude, chatgpt, gpt-oss, devestral etc... thank you to HuggingFace, Unsloath, OpenCode, Llamma.cpp
