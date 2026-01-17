@@ -1,12 +1,12 @@
 [package]
 name = "mirror-log"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 license = "AGPL-3.0-or-later"
 description = "Append-only event log for personal knowledge management with semantic chunking using SQLite."
-homepage = "https://github.com/CromboJambo/mirror-log"
+homepage = "https://github.com/CromboJambo"
 repository = "https://github.com/CromboJambo/mirror-log"
-authors = ["Dustin Grover <dustinjgrover@gmail.com>"]
+authors = ["Dustin Grover <dustinjgrover@gmail.com>", "AI coding assistants such including:", "claude", "chatgpt", "gpt-oss", "devestral"]
 readme = "README.md"
 keywords = ["log", "knowledge-management", "SQLite", "append-only", "chunking"]
 categories = ["command-line-utilities", "data-structures", "database"]
