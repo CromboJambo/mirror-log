@@ -16,19 +16,20 @@ Append-only - Events are never modified or deleted
 No magic - Every query is visible SQL, every function does one thing
 Source tracking - Know where everything came from
 Debuggable - Open mirror.db in sqlite3 anytime and understand it
+
 Installation
-bash
+
 git clone <your-repo>
 cd mirror-log
-cargo build --release
+cargo build --release``
+
 The binary will be at target/release/mirror-log.
 
 Optionally, add it to your PATH:
-
-bash
 cargo install --path .
+
 Quick Start
-bash
+
 # Add a thought
 mirror-log add "Overhead allocation needs review" --source journal
 
