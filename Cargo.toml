@@ -2,7 +2,7 @@
 name = "mirror-log"
 version = "0.1.0"
 edition = "2024"
-license = "GPL-3.0-or-later"
+license = "AGPL-3.0-or-later"
 description = "Append-only event log for personal knowledge management with semantic chunking using SQLite."
 homepage = "https://github.com/CromboJambo/mirror-log"
 repository = "https://github.com/CromboJambo/mirror-log"
