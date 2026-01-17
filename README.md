@@ -19,7 +19,7 @@ Debuggable - Open mirror.db in sqlite3 anytime and understand it
 
 Installation
 
-git clone <your-repo>
+git clone https://github.com/CromboJambo/mirror-log
 cd mirror-log
 cargo build --release``
 

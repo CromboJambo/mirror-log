@@ -3,6 +3,13 @@ name = "mirror-log"
 version = "0.1.0"
 edition = "2024"
 license = "GPL-3.0-or-later"
+description = "Append-only event log for personal knowledge management with semantic chunking using SQLite."
+homepage = "https://github.com/CromboJambo/mirror-log"
+repository = "https://github.com/CromboJambo/mirror-log"
+authors = ["Dustin Grover <dustin@grover.com>"]
+readme = "README.md"
+keywords = ["log", "logging", "knowledge-management", "SQLite", "append-only", "mirror", "tool", "chunking", "personal"]
+categories = ["command-line-utilities", "data-structures", "database"]
 
 [dependencies]
 rusqlite = { version = "0.32", features = ["bundled"] }
