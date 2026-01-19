@@ -7,8 +7,8 @@ pub struct Chunk {
     pub event_id: String,
     pub chunk_index: i64,
     pub content: String,
-    pub start_offset: i64,
-    pub end_offset: i64,
+    pub start_offset: i64,  //placeholder for now
+    pub end_offset: i64,   // placeholder for now
 }
 
 /// Split content into chunks based on paragraphs or size
