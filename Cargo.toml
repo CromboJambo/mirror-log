@@ -1,6 +1,6 @@
 [package]
 name = "mirror-log"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2024"
 license = "AGPL-3.0-or-later"
 description = "Append-only event log for personal knowledge management with semantic chunking using SQLite."
@@ -10,6 +10,14 @@ authors = ["Dustin Grover <dustinjgrover@gmail.com>"]
 readme = "README.md"
 keywords = ["log", "knowledge-management", "SQLite", "append-only", "chunking"]
 categories = ["command-line-utilities", "data-structures", "database"]
+
+[lib]
+name = "mirror_log"
+path = "src/lib.rs"
+
+[bin]
+name = "mirror-log"
+path = "src/main.rs"
 
 [dependencies]
 rusqlite = { version = "0.32", features = ["bundled"] }
