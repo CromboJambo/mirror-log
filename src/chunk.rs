@@ -1,7 +1,3 @@
-use crate::chunk as _chunk;
-use crate::db as _db;
-use crate::log as _log;
-use crate::view as _view;
 use rusqlite::{Connection, Result};
 use uuid::Uuid;
 
