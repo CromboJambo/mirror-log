@@ -15,10 +15,6 @@ categories = ["command-line-utilities", "data-structures", "database"]
 name = "mirror_log"
 path = "src/lib.rs"
 
-[[bin]]
-name = "mirror-log"
-path = "src/main.rs"
-
 [dependencies]
 rusqlite = { version = "0.32", features = ["bundled"] }
 clap = { version = "4.5", features = ["derive"] }

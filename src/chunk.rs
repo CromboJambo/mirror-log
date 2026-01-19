@@ -1,3 +1,7 @@
+use crate::chunk as _chunk;
+use crate::db as _db;
+use crate::log as _log;
+use crate::view as _view;
 use rusqlite::{Connection, Result};
 use uuid::Uuid;
 
@@ -7,7 +11,7 @@ pub struct Chunk {
     pub event_id: String,
     pub chunk_index: i64,
     pub content: String,
-    pub start_offset: i64,  //placeholder for now
+    pub start_offset: i64, //placeholder for now
     pub end_offset: i64,   // placeholder for now
 }
 

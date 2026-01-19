@@ -1,7 +1,7 @@
-mod chunk;
-mod db;
-mod log;
-mod view;
+use ::mirror_log::chunk;
+use ::mirror_log::db;
+use ::mirror_log::log;
+use ::mirror_log::view;
 
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
