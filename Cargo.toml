@@ -15,7 +15,7 @@ categories = ["command-line-utilities", "data-structures", "database"]
 name = "mirror_log"
 path = "src/lib.rs"
 
-[bin]
+[[bin]]
 name = "mirror-log"
 path = "src/main.rs"
 
