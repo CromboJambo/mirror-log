@@ -21,6 +21,8 @@ clap = { version = "4.5", features = ["derive"] }
 uuid = { version = "1.10", features = ["v4"] }
 chrono = "0.4"
 polars = { version = "0.36", features = ["parquet"] }
+polars-sql = "0.52.0"
+
 
 [profile.release]
 strip = true
