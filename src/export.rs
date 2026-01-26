@@ -1,10 +1,10 @@
 use polars::prelude::*;
-use polars_sql::Database;
+use polars_sql::SQLDatabase;
 use std::fs::File;
 
 /// Convert SQLite events table to a Polars DataFrame
 pub fn sqlite_to_polars(db_path: &str) -> Result<DataFrame, PolarsError> {
-    let conn = Database::open(db_path)?;
+    let conn = SQLDatabase::open(db_path)?;
     let df = DataFrame::new(conn.execute("SELECT * FROM events", &[])?.to_dataframe()?);
     Ok(&mut df)
 }
