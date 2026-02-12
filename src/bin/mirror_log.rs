@@ -13,6 +13,9 @@ struct Cli {
     #[arg(short, long, default_value = "mirror.db")]
     db: PathBuf,
 
+    #[arg(short, long, default_value_t = 1000)]
+    batch_size: usize,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -51,6 +54,9 @@ enum Commands {
         #[arg(short, long)]
         meta: Option<String>,
     },
+
+    /// Show ingestion statistics
+    Stats,
 
     /// Show recent events
     Show {
@@ -130,7 +136,7 @@ fn main() {
         }
 
         Commands::Stdin { source, meta } => {
-            match log::append_stdin(&conn, &source, meta.as_deref()) {
+            match log::append_stdin(&conn, &source, meta.as_deref(), cli.batch_size) {
                 Ok(ids) => {
                     println!("Added {} events", ids.len());
                 }
@@ -139,6 +145,25 @@ fn main() {
                     std::process::exit(1);
                 }
             }
+        },
+
+        Commands::Stats => {
+            let (total, unique, oldest, newest) = log::stats(&conn).expect("Failed to get stats");
+
+            println!("Ingestion Statistics:");
+            println!("  Total events: {}", total);
+            println!("  Unique events: {}", unique);
+            println!("  Duplicate events: {}", total - unique);
+
+            if total > 0 {
+                use chrono::{DateTime, TimeZone, Utc};
+                let oldest_dt: DateTime<Utc> = Utc.timestamp_opt(oldest, 0).unwrap();
+                let newest_dt: DateTime<Utc> = Utc.timestamp_opt(newest, 0).unwrap();
+
+                println!("  Oldest: {}", oldest_dt.format("%Y-%m-%d %H:%M:%S UTC"));
+                println!("  Newest: {}", newest_dt.format("%Y-%m-%d %H:%M:%S UTC"));
+            }
+        },
         }
 
         Commands::Show {

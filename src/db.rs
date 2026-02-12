@@ -2,6 +2,13 @@ use rusqlite::{Connection, Result};
 
 pub fn init_db(path: &str) -> Result<Connection> {
     let conn = Connection::open(path)?;
+
+    // Performance optimization pragmas
+    conn.execute("PRAGMA journal_mode = WAL")?;
+    conn.execute("PRAGMA synchronous = NORMAL")?;
+    conn.execute("PRAGMA temp_store = MEMORY")?;
+    conn.execute("PRAGMA foreign_keys = ON")?;
+
     conn.execute_batch(include_str!("schema.sql"))?;
     Ok(conn)
 }
