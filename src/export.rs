@@ -1,5 +1,5 @@
 use polars::prelude::*;
-use polars_sql::SQLDatabase;
+use polars_sql::database::*;
 use std::fs::File;
 
 /// Convert SQLite events table to a Polars DataFrame

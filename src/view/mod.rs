@@ -17,14 +17,14 @@ impl Event {
     }
 
     pub fn preview_content(&self, max_chars: usize) -> String {
-        if self.content.len() <= max_chars {
+        let total_chars = self.content.chars().count();
+        if total_chars <= max_chars {
             self.content.clone()
         } else {
+            let preview: String = self.content.chars().take(max_chars).collect();
             format!(
                 "{}...\n\n[Content truncated: {} of {} chars shown]",
-                &self.content[..max_chars],
-                max_chars,
-                self.content.len()
+                preview, max_chars, total_chars
             )
         }
     }
