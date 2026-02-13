@@ -125,7 +125,7 @@ pub fn append_stdin(
                             all_ids.extend(ids);
                         }
                     }
-                    return Err(io::Error::new(io::ErrorKind::Other, e));
+                    return Err(io::Error::other(e));
                 }
             }
             batch.clear();
@@ -138,7 +138,7 @@ pub fn append_stdin(
         match append_batch(conn, source, &contents, meta) {
             Ok(ids) => all_ids.extend(ids),
             Err(e) => {
-                return Err(io::Error::new(io::ErrorKind::Other, e));
+                return Err(io::Error::other(e));
             }
         }
     }
