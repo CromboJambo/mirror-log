@@ -53,9 +53,13 @@ pub fn append_batch(
     let mut hasher = Sha256::new();
 
     // Wrap all inserts in a single transaction for atomicity
-    let tx = conn
-        .unchecked_transaction()
-        .map_err(|e| rusqlite::Error::FromSqlConversionFailure(Box::new(e)))?;
+    let tx = conn.unchecked_transaction().map_err(|e| {
+        rusqlite::Error::FromSqlConversionFailure(
+            std::any::TypeId::of::<rusqlite::Error>(),
+            1,
+            Box::new(e),
+        )
+    })?;
 
     for content in contents {
         let id = Uuid::new_v4().to_string();
@@ -90,8 +94,13 @@ pub fn append_batch(
         ids.push(id);
     }
 
-    tx.commit()
-        .map_err(|e| rusqlite::Error::FromSqlConversionFailure(Box::new(e)))?;
+    tx.commit().map_err(|e| {
+        rusqlite::Error::FromSqlConversionFailure(
+            std::any::TypeId::of::<rusqlite::Error>(),
+            1,
+            Box::new(e),
+        )
+    })?;
 
     Ok(ids)
 }
