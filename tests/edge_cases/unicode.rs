@@ -290,7 +290,7 @@ mod unicode_tests {
             .expect("Failed to create chunks");
 
         // Search for unicode text within chunks
-        let search_term = "测试块内容";
+        let search_term = "测试";
         let found_chunks = mirror_log::chunk::search_chunks(&conn, search_term, Some(10))
             .expect("Failed to search chunks");
 

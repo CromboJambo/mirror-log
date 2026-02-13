@@ -30,6 +30,9 @@ mirror-log stats
 
 # Database summary
 mirror-log info
+
+# Integrity verification (hash + relational checks)
+mirror-log verify
 ```
 
 ## Installation

@@ -90,6 +90,9 @@ enum Commands {
 
     /// Show database info
     Info,
+
+    /// Verify database integrity invariants
+    Verify,
 }
 
 fn main() {
@@ -300,6 +303,28 @@ fn main() {
 
                 println!("Oldest: {}", oldest_dt.format("%Y-%m-%d %H:%M:%S UTC"));
                 println!("Newest: {}", newest_dt.format("%Y-%m-%d %H:%M:%S UTC"));
+            }
+        }
+
+        Commands::Verify => {
+            let report = log::verify_integrity(&conn).expect("Failed to verify database integrity");
+            let issues =
+                report.missing_or_invalid_hashes + report.hash_mismatches + report.orphan_chunks;
+
+            println!("Integrity Report:");
+            println!("  Total events: {}", report.total_events);
+            println!(
+                "  Missing/invalid hashes: {}",
+                report.missing_or_invalid_hashes
+            );
+            println!("  Hash mismatches: {}", report.hash_mismatches);
+            println!("  Orphan chunks: {}", report.orphan_chunks);
+
+            if issues == 0 {
+                println!("  Status: OK");
+            } else {
+                println!("  Status: FAILED ({} issues)", issues);
+                std::process::exit(1);
             }
         }
     }

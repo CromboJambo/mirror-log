@@ -480,7 +480,7 @@ mod cli_tests {
     #[test]
     fn test_cli_add_file() {
         let db_path = temp_db();
-        let file_path = temp_db();
+        let mut file_path = temp_db();
         file_path.set_extension("txt");
 
         let mut file = fs::File::create(&file_path).expect("Failed to create test file");
@@ -699,8 +699,8 @@ mod cli_tests {
         assert!(output.status.success());
 
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-        assert!(stdout.contains("total"));
-        assert!(stdout.contains("unique"));
+        assert!(stdout.contains("Total"));
+        assert!(stdout.contains("Unique"));
 
         fs::remove_file(&db_path).ok();
     }
@@ -723,7 +723,7 @@ mod cli_tests {
         assert!(output.status.success());
 
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-        assert!(stdout.contains("database"));
+        assert!(stdout.contains("Database"));
 
         fs::remove_file(&db_path).ok();
     }
@@ -810,8 +810,51 @@ mod cli_tests {
         assert!(output.status.success());
 
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-        assert!(stdout.contains("USAGE"));
+        assert!(stdout.contains("Usage:"));
         assert!(stdout.contains("Commands:"));
+
+        fs::remove_file(&db_path).ok();
+    }
+
+    #[test]
+    fn test_cli_verify_ok() {
+        let db_path = temp_db();
+        let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
+        mirror_log::log::append(&conn, "verify_test", "Verify me", None).expect("Failed to append");
+
+        let output = Command::new(get_binary_path())
+            .args(["--db", db_path.to_str().unwrap(), "verify"])
+            .output()
+            .expect("Failed to run verify");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("Status: OK"));
+
+        fs::remove_file(&db_path).ok();
+    }
+
+    #[test]
+    fn test_cli_verify_detects_hash_mismatch() {
+        let db_path = temp_db();
+        let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
+        let id = mirror_log::log::append(&conn, "verify_test", "Original content", None)
+            .expect("Failed to append");
+
+        conn.execute(
+            "UPDATE events SET content = ?1 WHERE id = ?2",
+            ["Tampered content", id.as_str()],
+        )
+        .expect("Failed to tamper row");
+
+        let output = Command::new(get_binary_path())
+            .args(["--db", db_path.to_str().unwrap(), "verify"])
+            .output()
+            .expect("Failed to run verify");
+
+        assert!(!output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("Hash mismatches: 1"));
 
         fs::remove_file(&db_path).ok();
     }

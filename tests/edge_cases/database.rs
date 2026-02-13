@@ -24,10 +24,11 @@ fn get_binary_path() -> PathBuf {
 mod database_tests {
     use super::*;
     use sha2::{Digest, Sha256};
+    use std::io::Write;
 
     #[test]
     fn test_database_corruption_recovery() {
-        let db_path = temp_db();
+        let mut db_path = temp_db();
         let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
 
         // Add some events
@@ -51,7 +52,7 @@ mod database_tests {
 
     #[test]
     fn test_database_migration_scenario() {
-        let db_path = temp_db();
+        let mut db_path = temp_db();
 
         // Initialize with old schema
         let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
@@ -94,7 +95,7 @@ mod database_tests {
             let handle = thread::spawn(move || {
                 let conn =
                     mirror_log::db::init_db(&db_path_clone).expect("Failed to initialize DB");
-                mirror_log::log::append(&conn, "concurrent", format!("Event {}", i), None)
+                mirror_log::log::append(&conn, "concurrent", &format!("Event {}", i), None)
                     .expect("Failed to append");
                 drop(conn);
             });
@@ -117,7 +118,7 @@ mod database_tests {
     #[test]
     fn test_database_backup_restore() {
         let db_path = temp_db();
-        let backup_path = temp_db();
+        let mut backup_path = temp_db();
         backup_path.set_extension("backup");
 
         // Initialize and add events
@@ -193,7 +194,7 @@ mod database_tests {
 
     #[test]
     fn test_database_size_limits() {
-        let db_path = temp_db();
+        let mut db_path = temp_db();
 
         // Initialize database
         let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
@@ -217,7 +218,7 @@ mod database_tests {
 
     #[test]
     fn test_database_locking() {
-        let db_path = temp_db();
+        let mut db_path = temp_db();
 
         // Initialize database
         let conn1 = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
@@ -331,8 +332,8 @@ mod database_tests {
 
     #[test]
     fn test_database_with_special_characters_in_path() {
-        let db_path = temp_db();
-        db_path.push("test_database_#1$2%3&4'5");
+        let mut db_path = temp_db();
+        db_path.set_file_name("test_database_#1$2%3&4'5.db");
 
         // Initialize database with special characters in path
         let result = mirror_log::db::init_db(&db_path);
@@ -411,8 +412,8 @@ mod database_tests {
 
     #[test]
     fn test_database_with_unicode_paths() {
-        let db_path = temp_db();
-        db_path.push("测试数据库_🌍");
+        let mut db_path = temp_db();
+        db_path.set_file_name("测试数据库_🌍.db");
 
         // Initialize database with unicode path
         let result = mirror_log::db::init_db(&db_path);
@@ -457,7 +458,8 @@ mod database_tests {
 
         // Add event with binary content
         let content = vec![0x00, 0x01, 0x02, 0x03, 0x04, 0x05];
-        mirror_log::log::append(&conn, "source1", &content, None).expect("Failed to append");
+        let content_string = String::from_utf8_lossy(&content).to_string();
+        mirror_log::log::append(&conn, "source1", &content_string, None).expect("Failed to append");
 
         // Verify event
         let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");

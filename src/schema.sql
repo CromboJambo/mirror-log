@@ -7,11 +7,11 @@
 CREATE TABLE IF NOT EXISTS events (
     id TEXT PRIMARY KEY,
     timestamp INTEGER NOT NULL,           -- Event creation timestamp (UTC seconds)
-    source TEXT NOT NULL,                  -- Source identifier (e.g., "cli", "stdin", "file")
+    source TEXT NOT NULL CHECK (length(source) > 0), -- Source identifier (e.g., "cli", "stdin", "file")
     content TEXT NOT NULL,                 -- Raw event content
     meta TEXT,                             -- Optional JSON metadata
     ingested_at INTEGER NOT NULL DEFAULT (unixepoch()),  -- Ingestion timestamp
-    content_hash TEXT                      -- SHA256 hash for deduplication
+    content_hash TEXT CHECK (content_hash IS NULL OR length(content_hash) = 64) -- SHA256 hash for deduplication
 );
 
 -- ============================================================================

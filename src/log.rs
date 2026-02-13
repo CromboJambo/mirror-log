@@ -3,6 +3,14 @@ use sha2::{Digest, Sha256};
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
+#[derive(Debug, Clone, Copy)]
+pub struct IntegrityReport {
+    pub total_events: i64,
+    pub missing_or_invalid_hashes: i64,
+    pub hash_mismatches: i64,
+    pub orphan_chunks: i64,
+}
+
 fn unix_now_secs() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -184,4 +192,47 @@ pub fn stats(conn: &Connection) -> Result<(i64, i64, i64, i64)> {
         .unwrap_or(0);
 
     Ok((total, unique, oldest, newest))
+}
+
+/// Verify core integrity invariants for stored events and chunks.
+pub fn verify_integrity(conn: &Connection) -> Result<IntegrityReport> {
+    let total_events: i64 = conn.query_row("SELECT COUNT(*) FROM events", [], |row| row.get(0))?;
+
+    let missing_or_invalid_hashes: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM events WHERE content_hash IS NULL OR length(content_hash) != 64",
+        [],
+        |row| row.get(0),
+    )?;
+
+    let mut hash_mismatches = 0_i64;
+    let mut stmt = conn.prepare("SELECT content, content_hash FROM events")?;
+    let rows = stmt.query_map([], |row| {
+        let content: String = row.get(0)?;
+        let content_hash: Option<String> = row.get(1)?;
+        Ok((content, content_hash))
+    })?;
+
+    for row in rows {
+        let (content, stored_hash) = row?;
+        let mut hasher = Sha256::new();
+        hasher.update(content.as_bytes());
+        let computed = format!("{:x}", hasher.finalize());
+
+        if stored_hash.as_deref() != Some(computed.as_str()) {
+            hash_mismatches += 1;
+        }
+    }
+
+    let orphan_chunks: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM chunks c LEFT JOIN events e ON e.id = c.event_id WHERE e.id IS NULL",
+        [],
+        |row| row.get(0),
+    )?;
+
+    Ok(IntegrityReport {
+        total_events,
+        missing_or_invalid_hashes,
+        hash_mismatches,
+        orphan_chunks,
+    })
 }
