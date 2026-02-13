@@ -4,10 +4,10 @@ pub fn init_db(path: &str) -> Result<Connection> {
     let conn = Connection::open(path)?;
 
     // Performance optimization pragmas
-    conn.execute("PRAGMA journal_mode = WAL", [])?;
-    conn.execute("PRAGMA synchronous = NORMAL", [])?;
-    conn.execute("PRAGMA temp_store = MEMORY", [])?;
-    conn.execute("PRAGMA foreign_keys = ON", [])?;
+    conn.pragma_update(None, "journal_mode", "WAL")?;
+    conn.pragma_update(None, "synchronous", "NORMAL")?;
+    conn.pragma_update(None, "temp_store", "MEMORY")?;
+    conn.pragma_update(None, "foreign_keys", 1)?;
 
     conn.execute_batch(include_str!("schema.sql"))?;
     Ok(conn)

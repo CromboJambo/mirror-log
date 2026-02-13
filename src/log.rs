@@ -50,16 +50,9 @@ pub fn append_batch(
     meta: Option<&str>,
 ) -> Result<Vec<String>> {
     let mut ids = Vec::new();
-    let mut hasher = Sha256::new();
 
     // Wrap all inserts in a single transaction for atomicity
-    let tx = conn.unchecked_transaction().map_err(|e| {
-        rusqlite::Error::FromSqlConversionFailure(
-            std::any::TypeId::of::<rusqlite::Error>(),
-            1,
-            Box::new(e),
-        )
-    })?;
+    let tx = conn.unchecked_transaction()?;
 
     for content in contents {
         let id = Uuid::new_v4().to_string();
@@ -73,7 +66,7 @@ pub fn append_batch(
             .as_secs() as i64;
 
         // Calculate content hash
-        hasher.reset();
+        let mut hasher = Sha256::new();
         hasher.update(content.as_bytes());
         let content_hash = format!("{:x}", hasher.finalize());
 
@@ -94,13 +87,7 @@ pub fn append_batch(
         ids.push(id);
     }
 
-    tx.commit().map_err(|e| {
-        rusqlite::Error::FromSqlConversionFailure(
-            std::any::TypeId::of::<rusqlite::Error>(),
-            1,
-            Box::new(e),
-        )
-    })?;
+    tx.commit()?;
 
     Ok(ids)
 }
