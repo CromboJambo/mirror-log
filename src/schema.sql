@@ -23,8 +23,8 @@ CREATE INDEX IF NOT EXISTS idx_events_ts ON events(timestamp DESC);
 -- Composite index for source + timestamp queries
 CREATE INDEX IF NOT EXISTS idx_events_source_ts ON events(source, timestamp DESC);
 
--- Deduplication index (NULL-safe)
-CREATE UNIQUE INDEX IF NOT EXISTS idx_events_hash ON events(content_hash) WHERE content_hash IS NOT NULL;
+-- Deduplication lookup index (NULL-safe, duplicates allowed)
+CREATE INDEX IF NOT EXISTS idx_events_hash ON events(content_hash) WHERE content_hash IS NOT NULL;
 
 -- ============================================================================
 -- Chunked Content Table (for large events)

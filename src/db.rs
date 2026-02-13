@@ -1,6 +1,8 @@
+use std::path::Path;
+
 use rusqlite::{Connection, Result};
 
-pub fn init_db(path: &str) -> Result<Connection> {
+pub fn init_db(path: impl AsRef<Path>) -> Result<Connection> {
     let conn = Connection::open(path)?;
 
     // Performance optimization pragmas

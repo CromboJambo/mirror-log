@@ -1,217 +1,141 @@
-mirror-log
-An append-only event log for capturing thoughts, notes, and data you don't want to lose.
+# mirror-log
 
-Philosophy
-This is a lab notebook for your brain. Write things down once, never lose them, find them later. No editing history, no second-guessing what you wrote, no normalization that loses context.
+An append-only event log for capturing thoughts, notes, and data you do not want to lose.
 
-Think of it as a foundation for personal knowledge that:
+`mirror-log` is local-first, SQLite-backed, and designed to be boring in the best way: easy to inspect, easy to script, and hard to accidentally lose context.
 
-Accepts anything (text, documents, conversation exports)
-Never modifies what you wrote
-Lets you search and connect ideas later
-Stays local, debuggable, and honest
-Core Principles
-SQLite is the source of truth - Your data, your filesystem, no servers
-Append-only - Events are never modified or deleted
-No magic - Every query is visible SQL, every function does one thing
-Source tracking - Know where everything came from
-Debuggable - Open mirror.db in sqlite3 anytime and understand it
+## What Changed in v0.1.4
 
-Installation
+- `init_db` now accepts path-like inputs (`&str`, `PathBuf`, etc.) for cleaner integration usage.
+- Duplicate events are allowed again (append-only semantics preserved), while hash-based lookup remains indexed for dedupe stats.
+- `is_duplicate` now safely returns `false` when no matching hash exists.
+- Chunk splitting is more robust and UTF-8 safe for large content.
+- Integration tests and CLI-path handling were cleaned up; test and lint pipeline is green.
 
-bash
+## Core Principles
+
+- Append-only: events are never updated or deleted.
+- SQLite is the source of truth: your data stays local and inspectable.
+- No hidden layers: direct SQL remains first-class.
+- Source-aware logging: every event tracks where it came from.
+
+## Installation
+
+```bash
 git clone https://github.com/CromboJambo/mirror-log
 cd mirror-log
 cargo build --release
+```
 
-The binary will be at target/release/mirror-log.
+Binary output:
 
-Optionally, add it to your PATH:
+- `target/release/mirror-log`
 
-bash
+Optional local install:
+
+```bash
 cargo install --path .
+```
 
-Quick Start
+## Quick Start
 
-# Add a thought
+```bash
+# Add one event
 mirror-log add "Overhead allocation needs review" --source journal
 
-# Add from a file
-mirror-log add "$(cat meeting-notes.md)" --source meetings
+# Add from file
+mirror-log add-file notes.md --source meetings
 
-# Bulk import (one line per event)
+# Bulk import from stdin (one line = one event)
 cat ideas.txt | mirror-log stdin --source ideas
 
-# View recent entries
+# Show recent
 mirror-log show --last 10
 
-# Search
+# Search full events
 mirror-log search "overhead"
 
-# Filter by source
-mirror-log show --last 20 --source journal
+# Search chunked content
+mirror-log search "allocation" --chunks
 
-# Database info
+# Ingestion stats (total/unique/duplicates)
+mirror-log stats
+
+# Database summary
 mirror-log info
-Usage
-Adding Events
-Single entry:
+```
 
-bash
-mirror-log add "Your content here" --source cli
-With metadata:
+## CLI Overview
 
-bash
-mirror-log add "Meeting notes" \
-  --source meetings \
-  --meta '{"attendees": ["alice", "bob"], "project": "Q4-planning"}'
-From file:
+Global flags:
 
-bash
-mirror-log add "$(cat document.md)" --source documents
-Bulk import from stdin:
+- `--db <path>`: SQLite database path (default: `mirror.db`)
+- `--batch-size <n>`: stdin ingest batch size (default: `1000`)
 
-bash
-cat file.txt | mirror-log stdin --source import
-seq 1 100000 | mirror-log stdin --source test  # Fast bulk import
-Reading Events
-Recent entries:
+Commands:
 
-bash
-mirror-log show --last 20
-Filter by source:
+- `add <content> [--source <name>] [--meta <json-or-text>]`
+- `add-file <path> [--source <name>] [--meta <json-or-text>]`
+- `stdin [--source <name>] [--meta <json-or-text>]`
+- `show [--last <n>] [--source <name>] [--preview <chars>]`
+- `search <term> [--preview <chars>] [--chunks]`
+- `get <event-id>`
+- `stats`
+- `info`
 
-bash
-mirror-log show --last 50 --source journal
-Search content:
+## Data Model
 
-bash
-mirror-log search "cost allocation"
-Get specific event:
+Main table: `events`
 
-bash
-mirror-log get <event-id>
-Database statistics:
+- `id TEXT PRIMARY KEY` (UUID)
+- `timestamp INTEGER NOT NULL` (event timestamp)
+- `source TEXT NOT NULL`
+- `content TEXT NOT NULL`
+- `meta TEXT NULL`
+- `ingested_at INTEGER NOT NULL`
+- `content_hash TEXT NULL` (SHA256 for dedupe analytics)
 
-bash
-mirror-log info
-Direct SQLite Access
-The database is just SQLite. You can query it directly:
+Chunk table: `chunks`
 
-bash
+- Stores chunked slices of event content (`event_id`, `chunk_index`, offsets, text, timestamp).
+- Used by `search --chunks` and large-content workflows.
+
+Additional enrichment tables also exist (`event_tags`, `event_links`, `event_embeddings`, `enrichment_jobs`) for future layering without mutating raw events.
+
+## Direct SQLite Access
+
+```bash
 sqlite3 mirror.db
+```
 
-# See recent events
-SELECT datetime(timestamp, 'unixepoch'), source, content 
-FROM events 
-ORDER BY timestamp DESC 
+```sql
+SELECT datetime(timestamp, 'unixepoch'), source, content
+FROM events
+ORDER BY timestamp DESC
 LIMIT 10;
+```
 
-# Count by source
-SELECT source, COUNT(*) 
-FROM events 
-GROUP BY source;
+```sql
+SELECT source, COUNT(*)
+FROM events
+GROUP BY source
+ORDER BY COUNT(*) DESC;
+```
 
-# Search with SQL
-SELECT * FROM events 
-WHERE content LIKE '%overhead%' 
-ORDER BY timestamp DESC;
-Schema
-sql
-CREATE TABLE events (
-    id TEXT PRIMARY KEY,          -- UUID
-    timestamp INTEGER NOT NULL,   -- Unix epoch
-    source TEXT NOT NULL,         -- Where this came from
-    content TEXT NOT NULL,        -- The actual data
-    meta TEXT                     -- Optional JSON metadata
-);
-Simple. Visible. No surprises.
+```sql
+SELECT COUNT(*) AS total,
+       COUNT(DISTINCT content_hash) AS unique_events
+FROM events;
+```
 
-Data Model
-Every event has:
+## Development
 
-id: UUID (unique identifier)
-timestamp: Unix epoch (when it was logged)
-source: String tag (cli, journal, meetings, import, etc.)
-content: The actual text/data
-meta: Optional JSON for structured metadata
-Events are never modified or deleted. The log is append-only.
+```bash
+cargo fmt
+cargo clippy --all-targets --all-features -- -D warnings
+cargo test
+```
 
-Use Cases
-Personal journal:
+## License
 
-bash
-mirror-log add "$(date): Thought about variance analysis today" --source journal
-Meeting notes:
-
-bash
-mirror-log add "$(cat meeting-2024-01-13.md)" --source meetings
-Conversation exports:
-
-bash
-mirror-log add "$(cat 'claude-chat.md')" --source claude-chat
-Git history:
-
-bash
-git log --oneline | mirror-log stdin --source git-history
-Research clips:
-
-bash
-mirror-log add "Interesting paper on ABC costing..." \
-  --source research \
-  --meta '{"url": "https://...", "tags": ["costing", "ABC"]}'
-Performance
-Bulk imports use transactions for speed:
-
-10,000 events: ~1 second
-100,000 events: ~3 seconds
-1,000,000 events: ~30 seconds
-SQLite handles millions of events efficiently. Text is tiny.
-
-What's NOT Here (By Design)
-❌ No updates or deletes
-❌ No migrations (schema is stable)
-❌ No AI/embeddings (yet - that's a separate layer)
-❌ No web UI (CLI first, UI later)
-❌ No sync (local-first)
-❌ No normalization (events are atomic)
-These features can be built on top without touching the core log.
-
-Future Layers
-This is the foundation. Future additions will be separate systems that read from events:
-
-Annotations table - Your thoughts about events (interpretive layer)
-Relations table - Connections between events (manual or AI-suggested)
-Embeddings - Vector search for semantic similarity
-Views - Saved queries and perspectives
-Web UI - Read-only interface for browsing
-Export tools - Markdown, JSON, etc.
-All of these will reference events by ID but never modify them.
-
-Philosophy: The Lab Notebook
-This is inspired by the lab notebook principle:
-
-Write in pen, never erase
-Date everything
-Note the source
-Preserve context
-Never lose data
-Digital tools make it too easy to edit, delete, and lose context. This tool enforces honesty by making the log immutable.
-
-Later analysis, connections, and interpretations happen in separate layers. The original data stays pristine.
-
-License
-AGPL-3.0-or-later
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-
-This ensures that if anyone runs a modified version of this software as a network service, they must make the source code available to users of that service.
-
-See the LICENSE file for full text.
-
-Contributing
-This is a personal tool first. If it's useful to you, great. If you want to contribute, open an issue and let's talk.
-
-Keep it simple. Keep it honest. Keep it debuggable.
-
-AI coding assistants from: claude, chatgpt, gpt-oss, devestral etc... thank you to HuggingFace, Unsloath, OpenCode, Llamma.cpp
+AGPL-3.0-or-later. See `LICENSE`.

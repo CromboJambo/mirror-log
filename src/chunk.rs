@@ -15,44 +15,49 @@ pub struct Chunk {
 pub fn chunk_content(content: &str, max_chunk_size: usize) -> Vec<(usize, usize, String)> {
     let mut chunks = Vec::new();
 
-    // Split on double newlines (paragraphs)
-    let paragraphs: Vec<&str> = content.split("\n\n").collect();
-
-    let mut current_chunk = String::new();
-    let mut chunk_start = 0;
-    let mut current_pos = 0;
-
-    for para in paragraphs {
-        let para_len = para.len() + 2; // +2 for the \n\n we split on
-
-        // If adding this paragraph exceeds max size and we have content, save chunk
-        if !current_chunk.is_empty() && current_chunk.len() + para_len > max_chunk_size {
-            chunks.push((chunk_start, current_pos, current_chunk.trim().to_string()));
-            current_chunk.clear();
-            chunk_start = current_pos;
-        }
-
-        if !current_chunk.is_empty() {
-            current_chunk.push_str("\n\n");
-        }
-        current_chunk.push_str(para);
-        current_pos += para_len;
+    if content.is_empty() || max_chunk_size == 0 {
+        return chunks;
     }
 
-    // Don't forget the last chunk
-    if !current_chunk.is_empty() {
-        chunks.push((chunk_start, current_pos, current_chunk.trim().to_string()));
-    }
-
-    // If content has no paragraphs, split by size
-    if chunks.is_empty() && !content.is_empty() {
-        let mut start = 0;
-        while start < content.len() {
-            let end = (start + max_chunk_size).min(content.len());
-            let chunk_text = content[start..end].to_string();
-            chunks.push((start, end, chunk_text));
-            start = end;
+    let mut start = 0;
+    while start < content.len() {
+        let remaining = content.len() - start;
+        if remaining <= max_chunk_size {
+            chunks.push((start, content.len(), content[start..].to_string()));
+            break;
         }
+
+        let target_end = max_chunk_size.min(remaining);
+        let mut hard_end = start;
+        for (offset, _) in content[start..].char_indices() {
+            if offset <= target_end {
+                hard_end = start + offset;
+            } else {
+                break;
+            }
+        }
+        if hard_end == start
+            && let Some((offset, ch)) = content[start..].char_indices().next()
+        {
+            hard_end = start + offset + ch.len_utf8();
+        }
+        let window = &content[start..hard_end];
+
+        // Prefer splitting on whitespace for readability; fall back to a hard boundary.
+        let split_at = window
+            .char_indices()
+            .filter_map(|(idx, ch)| {
+                if idx > 0 && ch.is_whitespace() {
+                    Some(start + idx)
+                } else {
+                    None
+                }
+            })
+            .next_back()
+            .unwrap_or(hard_end);
+
+        chunks.push((start, split_at, content[start..split_at].to_string()));
+        start = split_at;
     }
 
     chunks

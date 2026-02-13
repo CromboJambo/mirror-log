@@ -19,27 +19,13 @@ fn temp_db() -> PathBuf {
 }
 
 fn get_binary_path() -> PathBuf {
-    let mut path = env::current_exe().expect("Failed to get current executable path");
-    path.set_file_name("mirror_log");
-    path
-}
-
-fn run_cli(args: &[&str]) -> Result<String, String> {
-    let output = Command::new(get_binary_path())
-        .args(args)
-        .output()
-        .map_err(|e| format!("Failed to run CLI: {}", e))?;
-
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).to_string());
-    }
-
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    PathBuf::from(env!("CARGO_BIN_EXE_mirror_log"))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sha2::{Digest, Sha256};
     use std::fs;
     use std::thread;
     use std::time::Duration;
@@ -111,7 +97,7 @@ mod tests {
         // Write to stdin
         let input = "Stdin event 1\nStdin event 2\nStdin event 3\n";
         let mut child = Command::new(get_binary_path())
-            .args(&[
+            .args([
                 "--db",
                 db_path.to_str().unwrap(),
                 "stdin",
@@ -210,7 +196,7 @@ mod tests {
 
         assert_eq!(events.len(), 3);
         // Should be in descending order by ingestion time
-        assert!(events[0].content.contains("1") || events[0].content.contains("2"));
+        assert!(events[0].content.contains("5"));
 
         fs::remove_file(&db_path).ok();
     }
@@ -266,20 +252,22 @@ mod tests {
         let db_path = temp_db();
         let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
 
-        let content_hash = "test_hash_123456";
+        let content = "Test content";
+        let mut hasher = Sha256::new();
+        hasher.update(content.as_bytes());
+        let content_hash = format!("{:x}", hasher.finalize());
 
         // Initially should be false
         let is_dup =
-            mirror_log::log::is_duplicate(&conn, content_hash).expect("Failed to check duplicate");
+            mirror_log::log::is_duplicate(&conn, &content_hash).expect("Failed to check duplicate");
         assert!(!is_dup);
 
         // Add event with this content
-        mirror_log::log::append(&conn, "duplicate_test", "Test content", None)
-            .expect("Failed to append");
+        mirror_log::log::append(&conn, "duplicate_test", content, None).expect("Failed to append");
 
         // Now should be true
         let is_dup =
-            mirror_log::log::is_duplicate(&conn, content_hash).expect("Failed to check duplicate");
+            mirror_log::log::is_duplicate(&conn, &content_hash).expect("Failed to check duplicate");
         assert!(is_dup);
 
         fs::remove_file(&db_path).ok();
@@ -341,7 +329,7 @@ mod tests {
 
         let meta = "test_meta_data";
 
-        let id = mirror_log::log::append(&conn, "meta_test", "Test content with meta", Some(meta))
+        let _id = mirror_log::log::append(&conn, "meta_test", "Test content with meta", Some(meta))
             .expect("Failed to append");
 
         let large_content = "A".repeat(3000); // 3KB content that will be chunked

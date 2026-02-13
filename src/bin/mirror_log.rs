@@ -99,7 +99,11 @@ fn main() {
     let conn = db::init_db(db_path).expect("Failed to open database");
 
     match cli.command {
-        Commands::Add { content, source, meta } => {
+        Commands::Add {
+            content,
+            source,
+            meta,
+        } => {
             let id = log::append(&conn, &source, &content, meta.as_deref())
                 .expect("Failed to append event");
             println!("Added: {}", id);
@@ -161,7 +165,11 @@ fn main() {
             }
         }
 
-        Commands::Show { last, source, preview } => {
+        Commands::Show {
+            last,
+            source,
+            preview,
+        } => {
             let events = if let Some(src) = source {
                 view::by_source(&conn, &src, Some(last)).expect("Failed to query events")
             } else {
@@ -188,7 +196,11 @@ fn main() {
             }
         }
 
-        Commands::Search { term, preview, chunks } => {
+        Commands::Search {
+            term,
+            preview,
+            chunks,
+        } => {
             if chunks {
                 // Search chunks instead of full events
                 let found_chunks =
@@ -273,7 +285,7 @@ fn main() {
                 eprintln!("Event not found: {}", id);
                 std::process::exit(1);
             }
-        }
+        },
 
         Commands::Info => {
             let (count, oldest, newest) = db::db_info(&conn).expect("Failed to get database info");

@@ -3,6 +3,13 @@ use sha2::{Digest, Sha256};
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
+fn unix_now_secs() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64
+}
+
 /// Append a single event to the log
 pub fn append(
     conn: &Connection,
@@ -11,14 +18,14 @@ pub fn append(
     meta: Option<&str>,
 ) -> Result<String> {
     let id = Uuid::new_v4().to_string();
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs() as i64;
-    let ingested_at = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs() as i64;
+    let now = unix_now_secs();
+    let last_ts: Option<i64> =
+        conn.query_row("SELECT MAX(timestamp) FROM events", [], |row| row.get(0))?;
+    let timestamp = match last_ts {
+        Some(last) if now <= last => last + 1,
+        _ => now,
+    };
+    let ingested_at = timestamp;
 
     // Calculate content hash for deduplication
     let mut hasher = Sha256::new();
@@ -54,16 +61,17 @@ pub fn append_batch(
     // Wrap all inserts in a single transaction for atomicity
     let tx = conn.unchecked_transaction()?;
 
+    let now = unix_now_secs();
+    let last_ts: Option<i64> =
+        tx.query_row("SELECT MAX(timestamp) FROM events", [], |row| row.get(0))?;
+    let mut timestamp = match last_ts {
+        Some(last) if now <= last => last + 1,
+        _ => now,
+    };
+
     for content in contents {
         let id = Uuid::new_v4().to_string();
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as i64;
-        let ingested_at = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as i64;
+        let ingested_at = timestamp;
 
         // Calculate content hash
         let mut hasher = Sha256::new();
@@ -85,6 +93,7 @@ pub fn append_batch(
         )?;
 
         ids.push(id);
+        timestamp += 1;
     }
 
     tx.commit()?;
@@ -149,7 +158,7 @@ pub fn append_stdin(
 /// Check if an event with the same content hash already exists
 pub fn is_duplicate(conn: &Connection, content_hash: &str) -> Result<bool> {
     let exists: bool = conn.query_row(
-        "SELECT 1 FROM events WHERE content_hash = ?1 LIMIT 1",
+        "SELECT EXISTS(SELECT 1 FROM events WHERE content_hash = ?1)",
         [content_hash],
         |row| row.get(0),
     )?;
