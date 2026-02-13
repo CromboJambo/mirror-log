@@ -390,3 +390,429 @@ mod tests {
         fs::remove_file(&db_path).ok();
     }
 }
+
+#[cfg(test)]
+mod cli_tests {
+    use super::*;
+    use sha2::{Digest, Sha256};
+    use std::fs;
+    use std::path::PathBuf;
+    use std::process::Command;
+
+    fn temp_db() -> PathBuf {
+        let mut path = std::env::temp_dir();
+        path.push("mirror_log_cli_test_");
+        let random: u64 = rand::random();
+        path.push(format!("cli_test_{}.db", random));
+
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).ok();
+        }
+
+        path
+    }
+
+    fn get_binary_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_BIN_EXE_mirror_log"))
+    }
+
+    #[test]
+    fn test_cli_add_basic() {
+        let db_path = temp_db();
+        let mut child = Command::new(get_binary_path())
+            .args([
+                "--db",
+                db_path.to_str().unwrap(),
+                "add",
+                "Test event content",
+                "--source",
+                "test",
+            ])
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn process");
+
+        let output = child
+            .wait_with_output()
+            .expect("Failed to wait for process");
+        assert!(output.status.success());
+
+        let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
+        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        assert_eq!(total, 1);
+        assert_eq!(unique, 1);
+
+        fs::remove_file(&db_path).ok();
+    }
+
+    #[test]
+    fn test_cli_add_with_meta() {
+        let db_path = temp_db();
+        let mut child = Command::new(get_binary_path())
+            .args([
+                "--db",
+                db_path.to_str().unwrap(),
+                "add",
+                "Test event with meta",
+                "--source",
+                "test",
+                "--meta",
+                r#"{"key": "value"}"#,
+            ])
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn process");
+
+        let output = child
+            .wait_with_output()
+            .expect("Failed to wait for process");
+        assert!(output.status.success());
+
+        let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
+        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        assert_eq!(total, 1);
+
+        fs::remove_file(&db_path).ok();
+    }
+
+    #[test]
+    fn test_cli_add_file() {
+        let db_path = temp_db();
+        let file_path = temp_db();
+        file_path.set_extension("txt");
+
+        let mut file = fs::File::create(&file_path).expect("Failed to create test file");
+        writeln!(file, "File content for testing").expect("Failed to write to file");
+
+        let mut child = Command::new(get_binary_path())
+            .args([
+                "--db",
+                db_path.to_str().unwrap(),
+                "add-file",
+                file_path.to_str().unwrap(),
+                "--source",
+                "test",
+            ])
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn process");
+
+        let output = child
+            .wait_with_output()
+            .expect("Failed to wait for process");
+        assert!(output.status.success());
+
+        let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
+        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        assert_eq!(total, 1);
+
+        fs::remove_file(&db_path).ok();
+        fs::remove_file(&file_path).ok();
+    }
+
+    #[test]
+    fn test_cli_show_basic() {
+        let db_path = temp_db();
+        let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
+
+        // Add an event
+        let id =
+            mirror_log::log::append(&conn, "test", "Test content", None).expect("Failed to append");
+
+        let mut child = Command::new(get_binary_path())
+            .args(["--db", db_path.to_str().unwrap(), "show", "--last", "5"])
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn process");
+
+        let output = child
+            .wait_with_output()
+            .expect("Failed to wait for process");
+        assert!(output.status.success());
+
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        assert!(stdout.contains("Test content"));
+
+        fs::remove_file(&db_path).ok();
+    }
+
+    #[test]
+    fn test_cli_show_by_source() {
+        let db_path = temp_db();
+        let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
+
+        // Add events from different sources
+        mirror_log::log::append(&conn, "source1", "Content from source1", None)
+            .expect("Failed to append");
+        mirror_log::log::append(&conn, "source2", "Content from source2", None)
+            .expect("Failed to append");
+
+        let mut child = Command::new(get_binary_path())
+            .args([
+                "--db",
+                db_path.to_str().unwrap(),
+                "show",
+                "--source",
+                "source1",
+            ])
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn process");
+
+        let output = child
+            .wait_with_output()
+            .expect("Failed to wait for process");
+        assert!(output.status.success());
+
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        assert!(stdout.contains("Content from source1"));
+
+        fs::remove_file(&db_path).ok();
+    }
+
+    #[test]
+    fn test_cli_search_basic() {
+        let db_path = temp_db();
+        let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
+
+        // Add event with search term
+        mirror_log::log::append(&conn, "test", "Search for this text", None)
+            .expect("Failed to append");
+
+        let mut child = Command::new(get_binary_path())
+            .args([
+                "--db",
+                db_path.to_str().unwrap(),
+                "search",
+                "Search for this text",
+            ])
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn process");
+
+        let output = child
+            .wait_with_output()
+            .expect("Failed to wait for process");
+        assert!(output.status.success());
+
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        assert!(stdout.contains("Search for this text"));
+
+        fs::remove_file(&db_path).ok();
+    }
+
+    #[test]
+    fn test_cli_search_chunks() {
+        let db_path = temp_db();
+        let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
+
+        // Add event with chunked content
+        let content = "This is a test chunk content with specific text to search for";
+        let id = mirror_log::log::append(&conn, "test", content, None).expect("Failed to append");
+
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+
+        mirror_log::chunk::create_chunks(&conn, &id, content, timestamp, 20)
+            .expect("Failed to create chunks");
+
+        let mut child = Command::new(get_binary_path())
+            .args([
+                "--db",
+                db_path.to_str().unwrap(),
+                "search",
+                "specific text",
+                "--chunks",
+            ])
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn process");
+
+        let output = child
+            .wait_with_output()
+            .expect("Failed to wait for process");
+        assert!(output.status.success());
+
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        assert!(stdout.contains("specific text"));
+
+        fs::remove_file(&db_path).ok();
+    }
+
+    #[test]
+    fn test_cli_get_by_id() {
+        let db_path = temp_db();
+        let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
+
+        // Add an event
+        let id =
+            mirror_log::log::append(&conn, "test", "Test content", None).expect("Failed to append");
+
+        let mut child = Command::new(get_binary_path())
+            .args(["--db", db_path.to_str().unwrap(), "get", &id])
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn process");
+
+        let output = child
+            .wait_with_output()
+            .expect("Failed to wait for process");
+        assert!(output.status.success());
+
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        assert!(stdout.contains("Test content"));
+
+        fs::remove_file(&db_path).ok();
+    }
+
+    #[test]
+    fn test_cli_stats() {
+        let db_path = temp_db();
+        let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
+
+        // Add some events
+        mirror_log::log::append(&conn, "source1", "Event content 1", None)
+            .expect("Failed to append");
+        mirror_log::log::append(&conn, "source2", "Event content 2", None)
+            .expect("Failed to append");
+
+        let mut child = Command::new(get_binary_path())
+            .args(["--db", db_path.to_str().unwrap(), "stats"])
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn process");
+
+        let output = child
+            .wait_with_output()
+            .expect("Failed to wait for process");
+        assert!(output.status.success());
+
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        assert!(stdout.contains("total"));
+        assert!(stdout.contains("unique"));
+
+        fs::remove_file(&db_path).ok();
+    }
+
+    #[test]
+    fn test_cli_info() {
+        let db_path = temp_db();
+        let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
+
+        let mut child = Command::new(get_binary_path())
+            .args(["--db", db_path.to_str().unwrap(), "info"])
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn process");
+
+        let output = child
+            .wait_with_output()
+            .expect("Failed to wait for process");
+        assert!(output.status.success());
+
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        assert!(stdout.contains("database"));
+
+        fs::remove_file(&db_path).ok();
+    }
+
+    #[test]
+    fn test_cli_stdin() {
+        let db_path = temp_db();
+        let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
+
+        let input = "Stdin CLI test event\n";
+        let mut child = Command::new(get_binary_path())
+            .args([
+                "--db",
+                db_path.to_str().unwrap(),
+                "stdin",
+                "--source",
+                "cli_stdin",
+            ])
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn process");
+
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin
+                .write_all(input.as_bytes())
+                .expect("Failed to write to stdin");
+        }
+
+        let output = child
+            .wait_with_output()
+            .expect("Failed to wait for process");
+        assert!(output.status.success());
+
+        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        assert_eq!(total, 1);
+
+        fs::remove_file(&db_path).ok();
+    }
+
+    #[test]
+    fn test_cli_duplicate_detection() {
+        let db_path = temp_db();
+        let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
+
+        // Add same content twice
+        let content = "Duplicate content for CLI test";
+        mirror_log::log::append(&conn, "source1", content, None).expect("Failed to append");
+        mirror_log::log::append(&conn, "source2", content, None).expect("Failed to append");
+
+        let mut child = Command::new(get_binary_path())
+            .args(["--db", db_path.to_str().unwrap(), "stats"])
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn process");
+
+        let output = child
+            .wait_with_output()
+            .expect("Failed to wait for process");
+        assert!(output.status.success());
+
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        assert!(stdout.contains("2"));
+
+        fs::remove_file(&db_path).ok();
+    }
+
+    #[test]
+    fn test_cli_help() {
+        let db_path = temp_db();
+
+        let mut child = Command::new(get_binary_path())
+            .args(["--help"])
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn process");
+
+        let output = child
+            .wait_with_output()
+            .expect("Failed to wait for process");
+        assert!(output.status.success());
+
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        assert!(stdout.contains("USAGE"));
+        assert!(stdout.contains("Commands:"));
+
+        fs::remove_file(&db_path).ok();
+    }
+}

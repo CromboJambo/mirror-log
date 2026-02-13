@@ -1,41 +1,8 @@
-# mirror-log
+# Mirror-Log
 
 An append-only event log for capturing thoughts, notes, and data you do not want to lose.
 
 `mirror-log` is local-first, SQLite-backed, and designed to be boring in the best way: easy to inspect, easy to script, and hard to accidentally lose context.
-
-## What Changed in v0.1.4
-
-- `init_db` now accepts path-like inputs (`&str`, `PathBuf`, etc.) for cleaner integration usage.
-- Duplicate events are allowed again (append-only semantics preserved), while hash-based lookup remains indexed for dedupe stats.
-- `is_duplicate` now safely returns `false` when no matching hash exists.
-- Chunk splitting is more robust and UTF-8 safe for large content.
-- Integration tests and CLI-path handling were cleaned up; test and lint pipeline is green.
-
-## Core Principles
-
-- Append-only: events are never updated or deleted.
-- SQLite is the source of truth: your data stays local and inspectable.
-- No hidden layers: direct SQL remains first-class.
-- Source-aware logging: every event tracks where it came from.
-
-## Installation
-
-```bash
-git clone https://github.com/CromboJambo/mirror-log
-cd mirror-log
-cargo build --release
-```
-
-Binary output:
-
-- `target/release/mirror-log`
-
-Optional local install:
-
-```bash
-cargo install --path .
-```
 
 ## Quick Start
 
@@ -65,28 +32,37 @@ mirror-log stats
 mirror-log info
 ```
 
-## CLI Overview
+## Installation
 
-Global flags:
+```bash
+# Clone and build
+git clone https://github.com/CromboJambo/mirror-log
+cd mirror-log
+cargo build --release
 
-- `--db <path>`: SQLite database path (default: `mirror.db`)
-- `--batch-size <n>`: stdin ingest batch size (default: `1000`)
+# Binary location: target/release/mirror-log
 
-Commands:
+# Or install locally
+cargo install --path .
+```
 
-- `add <content> [--source <name>] [--meta <json-or-text>]`
-- `add-file <path> [--source <name>] [--meta <json-or-text>]`
-- `stdin [--source <name>] [--meta <json-or-text>]`
-- `show [--last <n>] [--source <name>] [--preview <chars>]`
-- `search <term> [--preview <chars>] [--chunks]`
-- `get <event-id>`
-- `stats`
-- `info`
+## Documentation
+
+- **[User Guide](docs/USER_GUIDE.md)** - Comprehensive documentation with examples, advanced features, and best practices
+- **[API Documentation](src/lib.rs)** - Library usage for programmatic access
+
+## Core Principles
+
+- **Append-only**: Events are never updated or deleted
+- **SQLite is source of truth**: Your data stays local and inspectable
+- **No hidden layers**: Direct SQL remains first-class
+- **Source-aware logging**: Every event tracks where it came from
 
 ## Data Model
 
-Main table: `events`
+### Main Tables
 
+**Events Table**
 - `id TEXT PRIMARY KEY` (UUID)
 - `timestamp INTEGER NOT NULL` (event timestamp)
 - `source TEXT NOT NULL`
@@ -95,34 +71,28 @@ Main table: `events`
 - `ingested_at INTEGER NOT NULL`
 - `content_hash TEXT NULL` (SHA256 for dedupe analytics)
 
-Chunk table: `chunks`
+**Chunks Table**
+- Stores chunked slices of event content
+- Used by `search --chunks` and large-content workflows
 
-- Stores chunked slices of event content (`event_id`, `chunk_index`, offsets, text, timestamp).
-- Used by `search --chunks` and large-content workflows.
-
-Additional enrichment tables also exist (`event_tags`, `event_links`, `event_embeddings`, `enrichment_jobs`) for future layering without mutating raw events.
-
-## Direct SQLite Access
+### Direct SQLite Access
 
 ```bash
 sqlite3 mirror.db
-```
 
-```sql
+# Query events
 SELECT datetime(timestamp, 'unixepoch'), source, content
 FROM events
 ORDER BY timestamp DESC
 LIMIT 10;
-```
 
-```sql
+# Count by source
 SELECT source, COUNT(*)
 FROM events
 GROUP BY source
 ORDER BY COUNT(*) DESC;
-```
 
-```sql
+# Get stats
 SELECT COUNT(*) AS total,
        COUNT(DISTINCT content_hash) AS unique_events
 FROM events;
