@@ -127,3 +127,26 @@ pub fn search_chunks(conn: &Connection, term: &str, limit: Option<i64>) -> Resul
 
     Ok(rows.filter_map(Result::ok).collect())
 }
+
+/// List all chunks for an event
+pub fn list_chunks(conn: &Connection, event_id: &str) -> Result<Vec<Chunk>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, event_id, chunk_index, content, start_offset, end_offset
+         FROM chunks
+         WHERE event_id = ?1
+         ORDER BY chunk_index ASC",
+    )?;
+
+    let rows = stmt.query_map([event_id], |row| {
+        Ok(Chunk {
+            id: row.get(0)?,
+            event_id: row.get(1)?,
+            chunk_index: row.get(2)?,
+            content: row.get(3)?,
+            start_offset: row.get(4)?,
+            end_offset: row.get(5)?,
+        })
+    })?;
+
+    Ok(rows.filter_map(Result::ok).collect())
+}
