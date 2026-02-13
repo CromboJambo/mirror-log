@@ -1,7 +1,5 @@
-use std::env;
 use std::fs;
 use std::path::PathBuf;
-use std::process::Command;
 
 fn temp_db() -> PathBuf {
     let mut path = std::env::temp_dir();
@@ -16,19 +14,14 @@ fn temp_db() -> PathBuf {
     path
 }
 
-fn get_binary_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_BIN_EXE_mirror_log"))
-}
-
 #[cfg(test)]
 mod database_tests {
     use super::*;
-    use sha2::{Digest, Sha256};
     use std::io::Write;
 
     #[test]
     fn test_database_corruption_recovery() {
-        let mut db_path = temp_db();
+        let db_path = temp_db();
         let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
 
         // Add some events
@@ -38,7 +31,8 @@ mod database_tests {
             .expect("Failed to append");
 
         // Corrupt the database file
-        let mut file = fs::File::create(&db_path).expect("Failed to create file");
+        use std::fs::File;
+        let mut file = File::create(&db_path).expect("Failed to create file");
         file.write_all(b"corrupted database content")
             .expect("Failed to write");
         fs::remove_file(&db_path).ok();
@@ -52,7 +46,7 @@ mod database_tests {
 
     #[test]
     fn test_database_migration_scenario() {
-        let mut db_path = temp_db();
+        let db_path = temp_db();
 
         // Initialize with old schema
         let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
@@ -67,9 +61,9 @@ mod database_tests {
         // Reinitialize - should handle migration
         let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
 
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 1);
-        assert_eq!(unique, 1);
+        assert_eq!(_unique, 1);
 
         fs::remove_file(&db_path).ok();
     }
@@ -87,7 +81,6 @@ mod database_tests {
 
         // Simulate concurrent access by spawning multiple threads
         use std::thread;
-        use std::time::Duration;
 
         let mut handles = vec![];
         for i in 0..5 {
@@ -107,7 +100,7 @@ mod database_tests {
         }
 
         let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
 
         // Should have at least 7 events (2 original + 5 concurrent)
         assert!(total >= 7);
@@ -143,10 +136,10 @@ mod database_tests {
 
         // Verify backup content
         let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
 
         assert_eq!(total, 2);
-        assert_eq!(unique, 2);
+        assert_eq!(_unique, 2);
 
         fs::remove_file(&db_path).ok();
         fs::remove_file(&backup_path).ok();
@@ -194,7 +187,7 @@ mod database_tests {
 
     #[test]
     fn test_database_size_limits() {
-        let mut db_path = temp_db();
+        let db_path = temp_db();
 
         // Initialize database
         let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
@@ -206,9 +199,9 @@ mod database_tests {
         }
 
         // Verify all events were stored
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 100);
-        assert_eq!(unique, 100);
+        assert_eq!(_unique, 100);
 
         // Verify database file exists
         assert!(fs::metadata(&db_path).is_ok());
@@ -218,7 +211,7 @@ mod database_tests {
 
     #[test]
     fn test_database_locking() {
-        let mut db_path = temp_db();
+        let db_path = temp_db();
 
         // Initialize database
         let conn1 = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
@@ -229,10 +222,10 @@ mod database_tests {
 
         // Try to access from another connection
         let conn2 = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
-        let (total, unique, _, _) = mirror_log::log::stats(&conn2).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn2).expect("Failed to get stats");
 
         assert_eq!(total, 1);
-        assert_eq!(unique, 1);
+        assert_eq!(_unique, 1);
 
         fs::remove_file(&db_path).ok();
     }
@@ -251,7 +244,7 @@ mod database_tests {
             .expect("Failed to append");
 
         // Verify events exist
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 2);
 
         // Close connection
@@ -264,7 +257,7 @@ mod database_tests {
         fs::remove_file(&db_path).ok();
 
         // Verify cleanup
-        assert!(!fs::metadata(&db_path).is_ok());
+        assert!(fs::metadata(&db_path).is_err());
     }
 
     #[test]
@@ -318,7 +311,7 @@ mod database_tests {
             .expect("Failed to append");
 
         // Verify events exist
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 2);
 
         // Close connection
@@ -345,7 +338,7 @@ mod database_tests {
             .expect("Failed to append");
 
         // Verify events
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 1);
 
         fs::remove_file(&db_path).ok();
@@ -359,10 +352,10 @@ mod database_tests {
         let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
 
         // Verify empty state
-        let (total, unique, oldest, newest) =
+        let (total, _unique, oldest, newest) =
             mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 0);
-        assert_eq!(unique, 0);
+        assert_eq!(_unique, 0);
         assert_eq!(oldest, 0);
         assert_eq!(newest, 0);
 
@@ -384,9 +377,9 @@ mod database_tests {
         }
 
         // Verify events
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 50);
-        assert_eq!(unique, 50);
+        assert_eq!(_unique, 50);
 
         fs::remove_file(&db_path).ok();
     }
@@ -404,7 +397,7 @@ mod database_tests {
         mirror_log::log::append(&conn, &long_source, content, None).expect("Failed to append");
 
         // Verify event
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 1);
 
         fs::remove_file(&db_path).ok();
@@ -425,7 +418,7 @@ mod database_tests {
             .expect("Failed to append");
 
         // Verify events
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 1);
 
         fs::remove_file(&db_path).ok();
@@ -443,7 +436,7 @@ mod database_tests {
         mirror_log::log::append(&conn, "source1", content, None).expect("Failed to append");
 
         // Verify event
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 1);
 
         fs::remove_file(&db_path).ok();
@@ -462,7 +455,7 @@ mod database_tests {
         mirror_log::log::append(&conn, "source1", &content_string, None).expect("Failed to append");
 
         // Verify event
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 1);
 
         fs::remove_file(&db_path).ok();
@@ -481,7 +474,7 @@ mod database_tests {
         mirror_log::log::append(&conn, "source1", content, Some(meta)).expect("Failed to append");
 
         // Verify event
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 1);
 
         fs::remove_file(&db_path).ok();
@@ -500,7 +493,7 @@ mod database_tests {
         mirror_log::log::append(&conn, "source1", content, Some(meta)).expect("Failed to append");
 
         // Verify event
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 1);
 
         fs::remove_file(&db_path).ok();
@@ -518,7 +511,7 @@ mod database_tests {
         mirror_log::log::append(&conn, "source1", content, None).expect("Failed to append");
 
         // Verify event
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 1);
 
         fs::remove_file(&db_path).ok();
@@ -537,7 +530,7 @@ mod database_tests {
         mirror_log::log::append(&conn, "source1", content, Some(meta)).expect("Failed to append");
 
         // Verify event
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 1);
 
         fs::remove_file(&db_path).ok();
@@ -556,7 +549,7 @@ mod database_tests {
         mirror_log::log::append(&conn, "source1", content, Some(&meta)).expect("Failed to append");
 
         // Verify event
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 1);
 
         fs::remove_file(&db_path).ok();
@@ -575,9 +568,9 @@ mod database_tests {
         mirror_log::log::append(&conn, "source2", content, None).expect("Failed to append");
 
         // Verify duplicate detection
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 2);
-        assert_eq!(unique, 1);
+        assert_eq!(_unique, 1);
 
         fs::remove_file(&db_path).ok();
     }
@@ -600,11 +593,11 @@ mod database_tests {
             .as_secs() as i64;
 
         // Create chunks
-        let chunk_count = mirror_log::chunk::create_chunks(&conn, &id, content, timestamp, 20)
+        let _chunk_count = mirror_log::chunk::create_chunks(&conn, &id, content, timestamp, 20)
             .expect("Failed to create chunks");
 
         // Verify chunks
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 1);
 
         fs::remove_file(&db_path).ok();
@@ -647,11 +640,11 @@ mod database_tests {
 
         // Add event with empty content
         let content = "";
-        let id =
+        let _id =
             mirror_log::log::append(&conn, "source1", content, None).expect("Failed to append");
 
         // Verify event
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 1);
 
         fs::remove_file(&db_path).ok();
@@ -666,11 +659,11 @@ mod database_tests {
 
         // Add event with multiline content
         let content = "Line 1\nLine 2\nLine 3\nLine 4\nLine 5";
-        let id =
+        let _id =
             mirror_log::log::append(&conn, "source1", content, None).expect("Failed to append");
 
         // Verify event
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 1);
 
         fs::remove_file(&db_path).ok();
@@ -685,11 +678,11 @@ mod database_tests {
 
         // Add event with very long content
         let content = "A".repeat(1000000); // 1MB content
-        let id =
+        let _id =
             mirror_log::log::append(&conn, "source1", &content, None).expect("Failed to append");
 
         // Verify event
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 1);
 
         fs::remove_file(&db_path).ok();
@@ -704,11 +697,11 @@ mod database_tests {
 
         // Add event with special characters
         let content = "Special characters: !@#$%^&*()_+-=[]{}|;':\",./<>?\n\t\r\n";
-        let id =
+        let _id =
             mirror_log::log::append(&conn, "source1", content, None).expect("Failed to append");
 
         // Verify event
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 1);
 
         fs::remove_file(&db_path).ok();
@@ -723,11 +716,11 @@ mod database_tests {
 
         // Add event with unicode content
         let content = "你好世界 🌍";
-        let id =
+        let _id =
             mirror_log::log::append(&conn, "source1", content, None).expect("Failed to append");
 
         // Verify event
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 1);
 
         fs::remove_file(&db_path).ok();

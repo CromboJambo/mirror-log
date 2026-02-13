@@ -1,4 +1,3 @@
-use std::env;
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
@@ -42,9 +41,9 @@ mod tests {
         assert_eq!(result.len(), 36); // UUID length
 
         // Verify it was actually stored
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 1);
-        assert_eq!(unique, 1);
+        assert_eq!(_unique, 1);
 
         fs::remove_file(&db_path).ok();
     }
@@ -63,9 +62,9 @@ mod tests {
         mirror_log::log::append(&conn, "source2", content, None).expect("Failed to append second");
 
         // Verify duplicate detection
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 2);
-        assert_eq!(unique, 1);
+        assert_eq!(_unique, 1);
 
         fs::remove_file(&db_path).ok();
     }
@@ -82,9 +81,9 @@ mod tests {
 
         assert_eq!(result.len(), 3);
 
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 3);
-        assert_eq!(unique, 3);
+        assert_eq!(_unique, 3);
 
         fs::remove_file(&db_path).ok();
     }
@@ -124,9 +123,9 @@ mod tests {
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         assert!(stdout.contains("3"));
 
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 3);
-        assert_eq!(unique, 3);
+        assert_eq!(_unique, 3);
 
         fs::remove_file(&db_path).ok();
     }
@@ -151,11 +150,11 @@ mod tests {
         )
         .expect("Failed to append duplicate");
 
-        let (total, unique, oldest, newest) =
+        let (total, _unique, oldest, newest) =
             mirror_log::log::stats(&conn).expect("Failed to get stats");
 
         assert_eq!(total, 3);
-        assert_eq!(unique, 2);
+        assert_eq!(_unique, 2);
         assert!(oldest > 0);
         assert!(newest > oldest);
 
@@ -294,11 +293,11 @@ mod tests {
         let db_path = temp_db();
         let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
 
-        let (total, unique, oldest, newest) =
+        let (total, _unique, oldest, newest) =
             mirror_log::log::stats(&conn).expect("Failed to get stats");
 
         assert_eq!(total, 0);
-        assert_eq!(unique, 0);
+        assert_eq!(_unique, 0);
         assert_eq!(oldest, 0);
         assert_eq!(newest, 0);
 
@@ -394,7 +393,6 @@ mod tests {
 #[cfg(test)]
 mod cli_tests {
     use super::*;
-    use sha2::{Digest, Sha256};
     use std::fs;
     use std::path::PathBuf;
     use std::process::Command;
@@ -419,7 +417,7 @@ mod cli_tests {
     #[test]
     fn test_cli_add_basic() {
         let db_path = temp_db();
-        let mut child = Command::new(get_binary_path())
+        let child = Command::new(get_binary_path())
             .args([
                 "--db",
                 db_path.to_str().unwrap(),
@@ -439,9 +437,9 @@ mod cli_tests {
         assert!(output.status.success());
 
         let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 1);
-        assert_eq!(unique, 1);
+        assert_eq!(_unique, 1);
 
         fs::remove_file(&db_path).ok();
     }
@@ -449,7 +447,7 @@ mod cli_tests {
     #[test]
     fn test_cli_add_with_meta() {
         let db_path = temp_db();
-        let mut child = Command::new(get_binary_path())
+        let child = Command::new(get_binary_path())
             .args([
                 "--db",
                 db_path.to_str().unwrap(),
@@ -471,7 +469,7 @@ mod cli_tests {
         assert!(output.status.success());
 
         let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 1);
 
         fs::remove_file(&db_path).ok();
@@ -486,7 +484,7 @@ mod cli_tests {
         let mut file = fs::File::create(&file_path).expect("Failed to create test file");
         writeln!(file, "File content for testing").expect("Failed to write to file");
 
-        let mut child = Command::new(get_binary_path())
+        let child = Command::new(get_binary_path())
             .args([
                 "--db",
                 db_path.to_str().unwrap(),
@@ -506,7 +504,7 @@ mod cli_tests {
         assert!(output.status.success());
 
         let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 1);
 
         fs::remove_file(&db_path).ok();
@@ -519,10 +517,10 @@ mod cli_tests {
         let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
 
         // Add an event
-        let id =
+        let _id =
             mirror_log::log::append(&conn, "test", "Test content", None).expect("Failed to append");
 
-        let mut child = Command::new(get_binary_path())
+        let child = Command::new(get_binary_path())
             .args(["--db", db_path.to_str().unwrap(), "show", "--last", "5"])
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
@@ -551,7 +549,7 @@ mod cli_tests {
         mirror_log::log::append(&conn, "source2", "Content from source2", None)
             .expect("Failed to append");
 
-        let mut child = Command::new(get_binary_path())
+        let child = Command::new(get_binary_path())
             .args([
                 "--db",
                 db_path.to_str().unwrap(),
@@ -584,7 +582,7 @@ mod cli_tests {
         mirror_log::log::append(&conn, "test", "Search for this text", None)
             .expect("Failed to append");
 
-        let mut child = Command::new(get_binary_path())
+        let child = Command::new(get_binary_path())
             .args([
                 "--db",
                 db_path.to_str().unwrap(),
@@ -624,7 +622,7 @@ mod cli_tests {
         mirror_log::chunk::create_chunks(&conn, &id, content, timestamp, 20)
             .expect("Failed to create chunks");
 
-        let mut child = Command::new(get_binary_path())
+        let child = Command::new(get_binary_path())
             .args([
                 "--db",
                 db_path.to_str().unwrap(),
@@ -657,7 +655,7 @@ mod cli_tests {
         let id =
             mirror_log::log::append(&conn, "test", "Test content", None).expect("Failed to append");
 
-        let mut child = Command::new(get_binary_path())
+        let child = Command::new(get_binary_path())
             .args(["--db", db_path.to_str().unwrap(), "get", &id])
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
@@ -686,7 +684,7 @@ mod cli_tests {
         mirror_log::log::append(&conn, "source2", "Event content 2", None)
             .expect("Failed to append");
 
-        let mut child = Command::new(get_binary_path())
+        let child = Command::new(get_binary_path())
             .args(["--db", db_path.to_str().unwrap(), "stats"])
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
@@ -708,9 +706,9 @@ mod cli_tests {
     #[test]
     fn test_cli_info() {
         let db_path = temp_db();
-        let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
+        let _conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
 
-        let mut child = Command::new(get_binary_path())
+        let child = Command::new(get_binary_path())
             .args(["--db", db_path.to_str().unwrap(), "info"])
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
@@ -759,7 +757,7 @@ mod cli_tests {
             .expect("Failed to wait for process");
         assert!(output.status.success());
 
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
         assert_eq!(total, 1);
 
         fs::remove_file(&db_path).ok();
@@ -775,7 +773,7 @@ mod cli_tests {
         mirror_log::log::append(&conn, "source1", content, None).expect("Failed to append");
         mirror_log::log::append(&conn, "source2", content, None).expect("Failed to append");
 
-        let mut child = Command::new(get_binary_path())
+        let child = Command::new(get_binary_path())
             .args(["--db", db_path.to_str().unwrap(), "stats"])
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
@@ -797,7 +795,7 @@ mod cli_tests {
     fn test_cli_help() {
         let db_path = temp_db();
 
-        let mut child = Command::new(get_binary_path())
+        let child = Command::new(get_binary_path())
             .args(["--help"])
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())

@@ -1,7 +1,5 @@
-use std::env;
 use std::fs;
 use std::path::PathBuf;
-use std::process::Command;
 
 fn temp_db() -> PathBuf {
     let mut path = std::env::temp_dir();
@@ -16,14 +14,9 @@ fn temp_db() -> PathBuf {
     path
 }
 
-fn get_binary_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_BIN_EXE_mirror_log"))
-}
-
 #[cfg(test)]
 mod unicode_tests {
     use super::*;
-    use sha2::{Digest, Sha256};
 
     #[test]
     fn test_unicode_basic() {
@@ -173,7 +166,7 @@ mod unicode_tests {
         // Second append
         mirror_log::log::append(&conn, "source2", unicode_content, None).expect("Failed to append");
 
-        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
 
         // Note: This test depends on duplicate detection working with unicode
         // The README says duplicates are allowed but hash-based lookup remains
@@ -189,7 +182,7 @@ mod unicode_tests {
 
         // Add event with unicode content
         let unicode_content = "Search for 世界 🌍 in this unicode text";
-        let result = mirror_log::log::append(&conn, "search_unicode_test", unicode_content, None)
+        let _result = mirror_log::log::append(&conn, "search_unicode_test", unicode_content, None)
             .expect("Failed to append");
 
         // Search for unicode content
@@ -266,7 +259,7 @@ mod unicode_tests {
 
         // Verify chunks exist
         let chunks = mirror_log::chunk::list_chunks(&conn, &id).expect("Failed to list chunks");
-        assert!(chunks.len() > 0);
+        assert!(!chunks.is_empty());
 
         fs::remove_file(&db_path).ok();
     }
