@@ -295,7 +295,8 @@ fn main() {
             content,
             source,
             meta,
-        } => {
+        }
+        => {
             let id = log::append(&conn, &source, &content, meta.as_deref())
                 .expect("Failed to append event");
             println!("Added: {}", id);
