@@ -11,10 +11,6 @@ readme = "README.md"
 keywords = ["log", "knowledge-management", "SQLite", "append-only", "chunking"]
 categories = ["command-line-utilities", "data-structures", "database"]
 
-[lib]
-name = "mirror_log"
-path = "src/lib.rs"
-
 [dependencies]
 rusqlite = { version = "0.32", features = ["bundled"] }
 clap = { version = "4.5", features = ["derive"] }
@@ -25,6 +21,21 @@ polars = { version = "0.36", features = ["parquet"] }
 polars-sql = "0.52.0"
 rand = "0.8"
 
+# Embedding and vector dependencies
+# Using tokenizers for efficient text tokenization
+tokenizers = "0.20"
+# Using rust-bert for embedding generation
+rust-bert = "0.24"
+# Using hf-hub for loading models
+hf-hub = "0.3"
+# Using ndarray for vector operations
+ndarray = "0.15"
+# Using approx for numerical comparisons
+approx = "0.5"
+
+[lib]
+name = "mirror_log"
+path = "src/lib.rs"
 
 [profile.release]
 strip = true
