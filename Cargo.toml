@@ -25,7 +25,7 @@ rand = "0.8"
 # Using tokenizers for efficient text tokenization
 tokenizers = "0.20"
 # Using rust-bert for embedding generation
-rust-bert = "0.24"
+rust-bert = "0.23"
 # Using hf-hub for loading models
 hf-hub = "0.3"
 # Using ndarray for vector operations
