@@ -1,5 +1,5 @@
--- mirror-log Schema with Ingest-Optimized Design
--- This schema supports high-volume ingestion, deduplication, and rich enrichment
+-- mirror-log Schema with Iteration Tracking
+-- This schema supports high-volume ingestion, deduplication, rich enrichment, and iterative learning cycles
 
 -- ============================================================================
 -- Core Events Table
@@ -101,6 +101,111 @@ CREATE TABLE IF NOT EXISTS enrichment_jobs (
 CREATE INDEX IF NOT EXISTS idx_jobs_event ON enrichment_jobs(event_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON enrichment_jobs(status);
 CREATE INDEX IF NOT EXISTS idx_jobs_type ON enrichment_jobs(job_type);
+
+-- ============================================================================
+-- Iteration Tracking Tables
+-- ============================================================================
+
+-- Iteration passes: track how many times an event has been iterated
+CREATE TABLE IF NOT EXISTS iteration_passes (
+    id TEXT PRIMARY KEY,
+    event_id TEXT NOT NULL,
+    iteration_number INTEGER NOT NULL CHECK (iteration_number > 0),
+    pass_type TEXT NOT NULL,  -- 'exposure', 'reflection', 're-encoding', 'application'
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_passes_event ON iteration_passes(event_id);
+CREATE INDEX IF NOT EXISTS idx_passes_number ON iteration_passes(event_id, iteration_number);
+CREATE INDEX IF NOT EXISTS idx_passes_type ON iteration_passes(pass_type);
+CREATE INDEX IF NOT EXISTS idx_passes_time ON iteration_passes(created_at DESC);
+
+-- Iteration insight metrics: track insight quality per iteration (dy/dx concept)
+CREATE TABLE IF NOT EXISTS iteration_insight (
+    id TEXT PRIMARY KEY,
+    event_id TEXT NOT NULL,
+    iteration_number INTEGER NOT NULL,
+    insight_score INTEGER NOT NULL CHECK (insight_score >= 0),  -- 0-100 scale
+    insight_delta REAL NOT NULL CHECK (insight_delta <= 0),  -- negative value (improvement from previous)
+    feedback_quality TEXT NOT NULL,  -- 'poor', 'fair', 'good', 'excellent'
+    semantic_change TEXT,  -- JSON describing semantic changes
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_insight_event ON iteration_insight(event_id);
+CREATE INDEX IF NOT EXISTS idx_insight_number ON iteration_insight(event_id, iteration_number);
+CREATE INDEX IF NOT EXISTS idx_insight_score ON iteration_insight(insight_score DESC);
+CREATE INDEX IF NOT EXISTS idx_insight_delta ON iteration_insight(insight_delta);
+
+-- Iteration feedback: detailed feedback for each iteration
+CREATE TABLE IF NOT EXISTS iteration_feedback (
+    id TEXT PRIMARY KEY,
+    event_id TEXT NOT NULL,
+    iteration_number INTEGER NOT NULL,
+    hint TEXT NOT NULL,  -- The hint given at this iteration
+    user_response TEXT,  -- User's response at this iteration
+    response_quality TEXT NOT NULL,  -- 'wrong', 'partial', 'correct', 'excellent'
+    response_time INTEGER,  -- Time taken to respond (in seconds)
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_feedback_event ON iteration_feedback(event_id);
+CREATE INDEX IF NOT EXISTS idx_feedback_number ON iteration_feedback(event_id, iteration_number);
+CREATE INDEX IF NOT EXISTS idx_feedback_quality ON iteration_feedback(response_quality);
+
+-- Iteration thresholds: configurable thresholds for when to stop iterating
+CREATE TABLE IF NOT EXISTS iteration_thresholds (
+    id TEXT PRIMARY KEY,
+    event_id TEXT NOT NULL,
+    pass_type TEXT NOT NULL,
+    max_iterations INTEGER NOT NULL CHECK (max_iterations > 0),
+    insight_threshold INTEGER NOT NULL CHECK (insight_threshold >= 0),  -- Stop when insight score drops below this
+    delta_threshold REAL NOT NULL CHECK (delta_threshold <= 0),  -- Stop when insight improvement drops below this
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_thresholds_event ON iteration_thresholds(event_id);
+CREATE INDEX IF NOT EXISTS idx_thresholds_type ON iteration_thresholds(event_id, pass_type);
+
+-- Iteration status: current state of iteration for each event
+CREATE TABLE IF NOT EXISTS iteration_status (
+    id TEXT PRIMARY KEY,
+    event_id TEXT NOT NULL UNIQUE,
+    current_iteration INTEGER NOT NULL DEFAULT 0,
+    current_pass_type TEXT,  -- 'exposure', 'reflection', 're-encoding', 'application'
+    last_insight_score INTEGER,
+    last_insight_delta REAL,
+    is_complete BOOLEAN NOT NULL DEFAULT 0,
+    completion_reason TEXT,  -- 'max_iterations', 'insight_threshold', 'delta_threshold', 'manual'
+    completed_at INTEGER,
+    FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_status_event ON iteration_status(event_id);
+CREATE INDEX IF NOT EXISTS idx_status_complete ON iteration_status(is_complete);
+
+-- Iteration statistics: aggregated statistics per event
+CREATE TABLE IF NOT EXISTS iteration_stats (
+    id TEXT PRIMARY KEY,
+    event_id TEXT NOT NULL UNIQUE,
+    total_iterations INTEGER NOT NULL DEFAULT 0,
+    total_passes INTEGER NOT NULL DEFAULT 0,
+    average_insight_score REAL,
+    max_insight_score INTEGER,
+    min_insight_score INTEGER,
+    total_improvement REAL,
+    avg_improvement REAL,
+    completion_time INTEGER,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_stats_event ON iteration_stats(event_id);
 
 -- ============================================================================
 -- SQLite Performance Pragmas

@@ -1,7 +1,7 @@
 [package]
 name = "mirror-log"
 version = "0.1.5"
-edition = "2024"
+edition = "2021"
 license = "AGPL-3.0-or-later"
 description = "Append-only event log for personal knowledge management with semantic chunking using SQLite."
 homepage = "https://github.com/CromboJambo"
@@ -24,14 +24,18 @@ rand = "0.8"
 # Embedding and vector dependencies
 # Using tokenizers for efficient text tokenization
 tokenizers = "0.20"
-# Using rust-bert for embedding generation
-rust-bert = "0.23"
-# Using hf-hub for loading models
-hf-hub = "0.3"
+# Using rust-bert for embedding generation (optional - remove if not needed)
+rust-bert = { version = "0.23", optional = true }
+# Using hf-hub for loading models (optional - remove if not needed)
+hf-hub = { version = "0.3", optional = true }
 # Using ndarray for vector operations
 ndarray = "0.15"
 # Using approx for numerical comparisons
 approx = "0.5"
+
+[features]
+default = []
+embedding = ["rust-bert", "hf-hub"]
 
 [lib]
 name = "mirror_log"
