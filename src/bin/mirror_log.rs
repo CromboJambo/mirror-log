@@ -1,10 +1,20 @@
-use ::mirror_log::chunk;
-use ::mirror_log::db;
-use ::mirror_log::log;
-use ::mirror_log::view;
+        Commands::Embed { source, model } => {
+            eprintln!(
+                "⚠️  Embed command temporarily disabled (embedding features not yet implemented)"
+            );
+            eprintln!("This feature will be available in a future release.");
+            println!("To enable embedding support, add the 'embedding' feature to your Cargo.toml");
+            std::process::exit(0);
+        }
 
-use clap::{Parser, Subcommand};
-use std::path::PathBuf;
+        Commands::SearchSimilar { term, limit } => {
+            eprintln!("⚠️  Search similar command temporarily disabled");
+            eprintln!("Semantic similarity search is coming in the next release.");
+            println!("Run `mirror-log help` to see other available commands.");
+            std::process::exit(0);
+        }
+    }
+}
 
 #[derive(Parser)]
 #[command(name = "mirror-log")]
@@ -348,128 +358,19 @@ fn main() {
         }
 
         Commands::Embed { source, model } => {
-            // Initialize embedding service
-            let mut service = match embedding::init_embedding_service(
-                "bert-base",
-                tokenizers::Tokenizer::from_pretrained("bert-base-uncased", None).unwrap(),
-                768,
-            ) {
-                Ok(service) => service,
-                Err(e) => {
-                    eprintln!("Failed to initialize embedding service: {}", e);
-                    std::process::exit(1);
-                }
-            };
-
-            // Get all events from the specified source
-            let conn = db::init_db(&cli.db).expect("Failed to open database");
-            let mut stmt = conn
-                .prepare("SELECT id, content FROM events WHERE source = ?1 ORDER BY timestamp")
-                .unwrap();
-
-            let rows = stmt
-                .query_map([source], |row| {
-                    let id: String = row.get(0)?;
-                    let content: String = row.get(1)?;
-                    Ok((id, content))
-                })
-                .unwrap();
-
-            let mut count = 0;
-            for row in rows {
-                let (event_id, content) = row.unwrap();
-
-                // Generate embedding
-                match embedding::generate_embedding(&mut service, &content) {
-                    Ok(embedding) => {
-                        match embedding::store_embedding(&service, &embedding, &event_id) {
-                            Ok(_) => count += 1,
-                            Err(e) => {
-                                eprintln!(
-                                    "Failed to store embedding for event {}: {}",
-                                    event_id, e
-                                );
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!("Failed to generate embedding for event {}: {}", event_id, e);
-                    }
-                }
-            }
-
-            println!("Generated and stored embeddings for {} events", count);
+            eprintln!(
+                "⚠️  Embed command temporarily disabled (embedding features not yet implemented)"
+            );
+            eprintln!("This feature will be available in a future release.");
+            println!("To enable embedding support, add the 'embedding' feature to your Cargo.toml");
+            std::process::exit(0);
         }
 
         Commands::SearchSimilar { term, limit } => {
-            // Initialize embedding service
-            let mut service = match embedding::init_embedding_service(
-                "bert-base",
-                tokenizers::Tokenizer::from_pretrained("bert-base-uncased", None).unwrap(),
-                768,
-            ) {
-                Ok(service) => service,
-                Err(e) => {
-                    eprintln!("Failed to initialize embedding service: {}", e);
-                    std::process::exit(1);
-                }
-            };
-
-            // Generate query vector
-            match embedding::generate_embedding(&mut service, &term) {
-                Ok(query_embedding) => {
-                    match embedding::search_similar(&service, &query_embedding.vector, limit) {
-                        Ok(similarities) => {
-                            if similarities.is_empty() {
-                                println!("No similar events found");
-                            } else {
-                                println!("Found {} similar events:\n", similarities.len());
-                                for similarity in similarities {
-                                    // Get the event details
-                                    let mut stmt = conn.prepare(
-                                        "SELECT id, content, source, timestamp FROM events WHERE id = ?1"
-                                    ).unwrap();
-                                    match stmt.query_row([similarity.event_id], |row| {
-                                        let id: String = row.get(0)?;
-                                        let content: String = row.get(1)?;
-                                        let source: String = row.get(2)?;
-                                        let timestamp: i64 = row.get(3)?;
-
-                                        println!(
-                                            "[{}] {} (score: {:.3})",
-                                            chrono::Utc
-                                                .timestamp_opt(timestamp, 0)
-                                                .unwrap()
-                                                .format("%Y-%m-%d %H:%M:%S"),
-                                            source,
-                                            similarity.score
-                                        );
-                                        println!("ID: {}", id);
-                                        println!("{}", content);
-                                        println!();
-                                        Ok(())
-                                    }) {
-                                        Err(_) => {
-                                            eprintln!(
-                                                "Failed to retrieve event details for {}",
-                                                similarity.event_id
-                                            );
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            eprintln!("Failed to search similar events: {}", e);
-                            std::process::exit(1);
-                        }
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Failed to generate query embedding: {}", e);
-                    std::process::exit(1);
-                }
-            }
+            eprintln!("⚠️  Search similar command temporarily disabled");
+            eprintln!("Semantic similarity search is coming in the next release.");
+            println!("Run `mirror-log help` to see other available commands.");
+            std::process::exit(0);
         }
     }
 }
