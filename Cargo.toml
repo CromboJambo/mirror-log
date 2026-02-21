@@ -20,15 +20,16 @@ sha2 = "0.10"
 polars = { version = "0.36", features = ["parquet"] }
 polars-sql = "0.52.0"
 rand = "0.8"
-
-# Optional embedding feature
+# Required for embedding support
 tokenizers = { version = "0.20", optional = true }
 ndarray = { version = "0.15", optional = true }
 approx = { version = "0.5", optional = true }
+serde = { version = "1.0", features = ["derive"], optional = true }
+thiserror = { version = "1.0", optional = true }
 
 [features]
 default = []
-embedding = ["tokenizers", "ndarray", "approx"]
+embedding = ["tokenizers", "ndarray", "approx", "serde", "thiserror"]
 
 [lib]
 name = "mirror_log"

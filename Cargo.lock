@@ -1651,7 +1651,9 @@ dependencies = [
  "polars-sql 0.52.0",
  "rand 0.8.5",
  "rusqlite",
+ "serde",
  "sha2",
+ "thiserror 1.0.69",
  "tokenizers",
  "uuid",
 ]
