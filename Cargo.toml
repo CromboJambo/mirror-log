@@ -21,17 +21,14 @@ polars = { version = "0.36", features = ["parquet"] }
 polars-sql = "0.52.0"
 rand = "0.8"
 
-# Embedding and vector dependencies
-# Using tokenizers for efficient text tokenization
-tokenizers = "0.20"
-# Using ndarray for vector operations
-ndarray = "0.15"
-# Using approx for numerical comparisons
-approx = "0.5"
+# Optional embedding feature
+tokenizers = { version = "0.20", optional = true }
+ndarray = { version = "0.15", optional = true }
+approx = { version = "0.5", optional = true }
 
 [features]
 default = []
-embedding = []
+embedding = ["tokenizers", "ndarray", "approx"]
 
 [lib]
 name = "mirror_log"

@@ -349,14 +349,14 @@ fn main() {
 
         Commands::Embed { source, model } => {
             println!("Embed command not implemented in this version (coming in next release)");
-            std::process::exit(1);
+            std::process::exit(0);
         }
 
         Commands::SearchSimilar { term, limit } => {
             println!(
                 "Search similar command not implemented in this version (coming in next release)"
             );
-            std::process::exit(1);
+            std::process::exit(0);
         }
     }
 }

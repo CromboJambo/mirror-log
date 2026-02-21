@@ -333,7 +333,7 @@ pub enum IterationError {
     NoActiveCycle(String),
 
     #[error("Database error: {0}")]
-    Database(#[from] sqlx::Error),
+    Database(#[from] rusqlite::Error),
 
     #[error("Invalid threshold configuration: {0}")]
     InvalidThreshold(String),
