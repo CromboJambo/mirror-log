@@ -98,8 +98,8 @@ enum Commands {
 fn main() {
     let cli = Cli::parse();
 
-    let db_path = cli.db.to_str().unwrap_or("mirror.db");
-    let conn = db::init_db(db_path).expect("Failed to open database");
+    let db_path = cli.db;
+    let conn = db::init_db(&db_path).expect("Failed to open database");
 
     match cli.command {
         Commands::Add {
@@ -228,12 +228,13 @@ fn main() {
                         println!("Chunk ID: {}", chunk.id);
 
                         if let Some(max_chars) = preview {
-                            if chunk.content.len() > max_chars {
+                            let total_chars = chunk.content.chars().count();
+                            if total_chars > max_chars {
+                                let preview_text: String =
+                                    chunk.content.chars().take(max_chars).collect();
                                 println!(
                                     "{}...\n[{} of {} chars]",
-                                    &chunk.content[..max_chars],
-                                    max_chars,
-                                    chunk.content.len()
+                                    preview_text, max_chars, total_chars
                                 );
                             } else {
                                 println!("{}", chunk.content);
@@ -293,7 +294,7 @@ fn main() {
         Commands::Info => {
             let (count, oldest, newest) = db::db_info(&conn).expect("Failed to get database info");
 
-            println!("Database: {}", db_path);
+            println!("Database: {}", db_path.display());
             println!("Total events: {}", count);
 
             if count > 0 {

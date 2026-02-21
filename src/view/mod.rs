@@ -57,7 +57,7 @@ pub fn recent(conn: &Connection, limit: i64) -> Result<Vec<Event>> {
         })
     })?;
 
-    Ok(rows.filter_map(Result::ok).collect())
+    rows.collect()
 }
 
 pub fn search(conn: &Connection, term: &str) -> Result<Vec<Event>> {
@@ -82,7 +82,7 @@ pub fn search(conn: &Connection, term: &str) -> Result<Vec<Event>> {
         })
     })?;
 
-    Ok(rows.filter_map(Result::ok).collect())
+    rows.collect()
 }
 
 pub fn by_source(conn: &Connection, source: &str, limit: Option<i64>) -> Result<Vec<Event>> {
@@ -117,7 +117,7 @@ pub fn by_source(conn: &Connection, source: &str, limit: Option<i64>) -> Result<
         })
     })?;
 
-    Ok(rows.filter_map(Result::ok).collect())
+    rows.collect()
 }
 
 pub fn get_by_id(conn: &Connection, id: &str) -> Result<Event> {
@@ -178,7 +178,7 @@ pub fn by_ingestion_time(
         })
     })?;
 
-    Ok(rows.filter_map(Result::ok).collect())
+    rows.collect()
 }
 
 /// Get deduplication statistics
@@ -216,5 +216,5 @@ pub fn find_duplicates(conn: &Connection, content_hash: &str) -> Result<Vec<Even
         })
     })?;
 
-    Ok(rows.filter_map(Result::ok).collect())
+    rows.collect()
 }

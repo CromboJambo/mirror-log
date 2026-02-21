@@ -1,9 +1,7 @@
-use chrono::{DateTime, TimeZone, Utc};
-use rusqlite::{Connection, Result as SqliteResult};
-use std::collections::HashMap;
+use rusqlite::{Connection, Error as SqliteError};
 use tokenizers::Tokenizer;
+use uuid::Uuid;
 
-/// Represents a single embedding vector
 #[derive(Debug, Clone)]
 pub struct Embedding {
     pub id: String,
@@ -12,7 +10,6 @@ pub struct Embedding {
     pub created_at: i64,
 }
 
-/// Represents statistics about embedding operations
 #[derive(Debug, Clone)]
 pub struct EmbeddingStats {
     pub total_embeddings: i64,
@@ -22,21 +19,20 @@ pub struct EmbeddingStats {
     pub average_vector_length: f32,
 }
 
-/// Represents a similarity score between two embeddings
 #[derive(Debug, Clone)]
 pub struct Similarity {
     pub event_id: String,
     pub score: f32,
 }
 
-/// Error types for embedding operations
 #[derive(Debug)]
 pub enum EmbeddingError {
     TokenizerError(String),
-    DatabaseError(SqliteResult<()>),
+    DatabaseError(SqliteError),
     ModelLoadError(String),
     VectorDimensionMismatch(usize, usize),
     NoEmbeddingsFound,
+    InvalidEmbeddingData(usize),
 }
 
 impl std::fmt::Display for EmbeddingError {
@@ -53,13 +49,15 @@ impl std::fmt::Display for EmbeddingError {
                 )
             }
             EmbeddingError::NoEmbeddingsFound => write!(f, "No embeddings found in database"),
+            EmbeddingError::InvalidEmbeddingData(bytes) => {
+                write!(f, "Embedding blob is not valid f32 data ({} bytes)", bytes)
+            }
         }
     }
 }
 
 impl std::error::Error for EmbeddingError {}
 
-/// Embedding service for mirror-log
 pub struct EmbeddingService {
     conn: Connection,
     model_name: String,
@@ -68,7 +66,6 @@ pub struct EmbeddingService {
 }
 
 impl EmbeddingService {
-    /// Create a new embedding service
     pub fn new(
         conn: Connection,
         model_name: &str,
@@ -83,7 +80,6 @@ impl EmbeddingService {
         }
     }
 
-    /// Initialize a new embedding service with a default model
     pub fn init(
         model_name: &str,
         tokenizer: Tokenizer,
@@ -93,98 +89,82 @@ impl EmbeddingService {
         Ok(Self::new(conn, model_name, tokenizer, embedding_dim))
     }
 
-    /// Generate an embedding for text
     pub fn generate_embedding(&mut self, text: &str) -> Result<Embedding, EmbeddingError> {
-        // Tokenize text
-        let tokens = self
+        let encoding = self
             .tokenizer
             .encode(text, true)
-            .map_err(EmbeddingError::TokenizerError)?;
+            .map_err(|e| EmbeddingError::TokenizerError(e.to_string()))?;
+        let mut vector = vec![0.0f32; self.embedding_dim];
 
-        // In a real implementation, you would use rust-bert to generate embeddings
-        // For now, create a dummy embedding (this would be replaced with actual model inference)
-        let vector = vec![0.0f32; self.embedding_dim];
-
-        let now = chrono::Utc::now().timestamp();
+        // Deterministic token-bucket embedding as a lightweight baseline.
+        for (position, token_id) in encoding.get_ids().iter().enumerate() {
+            let idx = (*token_id as usize) % self.embedding_dim;
+            let weight = 1.0 + (position % 8) as f32 * 0.125;
+            vector[idx] += weight;
+        }
+        vector = normalize_vector(&vector);
 
         Ok(Embedding {
-            id: uuid::Uuid::new_v4().to_string(),
+            id: Uuid::new_v4().to_string(),
             vector,
             model_name: self.model_name.clone(),
-            created_at: now,
+            created_at: chrono::Utc::now().timestamp(),
         })
     }
 
-    /// Store an embedding in the database
     pub fn store_embedding(
         &self,
         embedding: &Embedding,
         event_id: &str,
     ) -> Result<(), EmbeddingError> {
-        // Convert vector to bytes for storage
-        let vector_bytes: Vec<u8> = embedding
-            .vector
-            .iter()
-            .flat_map(|&v| v.to_le_bytes())
-            .collect();
-
-        let now = chrono::Utc::now().timestamp();
-
         self.conn
             .execute(
                 "INSERT INTO event_embeddings (id, event_id, embedding, model_name, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
                 (
                     &embedding.id,
                     event_id,
-                    &vector_bytes,
+                    vector_to_bytes(&embedding.vector),
                     &embedding.model_name,
-                    now,
+                    embedding.created_at,
                 ),
             )
             .map_err(EmbeddingError::DatabaseError)?;
-
         Ok(())
     }
 
-    /// Get an embedding for an event
     pub fn get_embedding(&self, event_id: &str) -> Result<Embedding, EmbeddingError> {
         let mut stmt = self
             .conn
             .prepare(
                 "SELECT id, embedding, model_name, created_at
-             FROM event_embeddings
-             WHERE event_id = ?1",
+                 FROM event_embeddings
+                 WHERE event_id = ?1
+                 ORDER BY created_at DESC
+                 LIMIT 1",
             )
             .map_err(EmbeddingError::DatabaseError)?;
 
-        let embedding_result = stmt
-            .query_row([event_id], |row| {
-                let id: String = row.get(0)?;
-                let vector_bytes: Vec<u8> = row.get(1)?;
-                let model_name: String = row.get(2)?;
-                let created_at: i64 = row.get(3)?;
+        stmt.query_row([event_id], |row| {
+            let id: String = row.get(0)?;
+            let vector_bytes: Vec<u8> = row.get(1)?;
+            let model_name: String = row.get(2)?;
+            let created_at: i64 = row.get(3)?;
 
-                // Convert bytes back to vector
-                let vector: Vec<f32> = vector_bytes
-                    .chunks_exact(4)
-                    .filter_map(|chunk| chunk.try_into().ok())
-                    .flat_map(|bytes| f32::from_le_bytes(bytes))
-                    .collect();
-
-                Ok(Embedding {
-                    id,
-                    vector,
-                    model_name,
-                    created_at,
-                })
+            Ok((id, vector_bytes, model_name, created_at))
+        })
+        .map_err(EmbeddingError::DatabaseError)
+        .and_then(|(id, vector_bytes, model_name, created_at)| {
+            let vector = bytes_to_vector(&vector_bytes)?;
+            Ok(Embedding {
+                id,
+                vector,
+                model_name,
+                created_at,
             })
-            .map_err(EmbeddingError::DatabaseError)?;
-
-        Ok(embedding_result)
+        })
     }
 
-    /// Get all embeddings for a specific model
     pub fn get_embeddings_by_model(
         &self,
         model_name: &str,
@@ -193,24 +173,28 @@ impl EmbeddingService {
             .conn
             .prepare(
                 "SELECT id, embedding, model_name, created_at
-             FROM event_embeddings
-             WHERE model_name = ?1",
+                 FROM event_embeddings
+                 WHERE model_name = ?1",
             )
             .map_err(EmbeddingError::DatabaseError)?;
 
-        let embeddings = stmt
+        let rows = stmt
             .query_map([model_name], |row| {
                 let id: String = row.get(0)?;
                 let vector_bytes: Vec<u8> = row.get(1)?;
                 let model_name: String = row.get(2)?;
                 let created_at: i64 = row.get(3)?;
+                Ok((id, vector_bytes, model_name, created_at))
+            })
+            .map_err(EmbeddingError::DatabaseError)?;
 
-                let vector: Vec<f32> = vector_bytes
-                    .chunks_exact(4)
-                    .filter_map(|chunk| chunk.try_into().ok())
-                    .flat_map(|bytes| f32::from_le_bytes(bytes))
-                    .collect();
+        let raw: Vec<(String, Vec<u8>, String, i64)> = rows
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(EmbeddingError::DatabaseError)?;
 
+        raw.into_iter()
+            .map(|(id, vector_bytes, model_name, created_at)| {
+                let vector = bytes_to_vector(&vector_bytes)?;
                 Ok(Embedding {
                     id,
                     vector,
@@ -218,28 +202,190 @@ impl EmbeddingService {
                     created_at,
                 })
             })
-            .map_err(EmbeddingError::DatabaseError)?
-            .filter_map(Result::ok)
-            .collect();
+            .collect()
+    }
+}
 
-        Ok(embeddings)
+fn vector_to_bytes(vector: &[f32]) -> Vec<u8> {
+    vector
+        .iter()
+        .flat_map(|value| value.to_le_bytes())
+        .collect()
+}
+
+fn bytes_to_vector(bytes: &[u8]) -> Result<Vec<f32>, EmbeddingError> {
+    if !bytes.len().is_multiple_of(4) {
+        return Err(EmbeddingError::InvalidEmbeddingData(bytes.len()));
     }
 
-    /// Calculate cosine similarity between two vectors
-    pub fn cosine_similarity(vec1: &[f32], vec2: &[f32]) -> Result<f32, EmbeddingError> {
-        if vec1.len() != vec2.len() {
-            return Err(EmbeddingError::VectorDimensionMismatch(
-                vec1.len(),
-                vec2.len(),
-            ));
-        }
+    Ok(bytes
+        .chunks_exact(4)
+        .map(|chunk| f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
+        .collect())
+}
 
-        let dot_product: f32 = vec1.iter().zip(vec2.iter()).map(|(a, b)| a * b).sum();
-        let norm1 = vec1.iter().map(|&v| v * v).sum::<f32>().sqrt();
-        let norm2 = vec2.iter().map(|&v| v * v).sum::<f32>().sqrt();
+pub fn normalize_vector(vector: &[f32]) -> Vec<f32> {
+    let norm = vector.iter().map(|v| v * v).sum::<f32>().sqrt();
+    if norm == 0.0 {
+        return vector.to_vec();
+    }
+    vector.iter().map(|v| v / norm).collect()
+}
 
-        if norm1 == 0.0 || norm2 == 0.0 {
-            return Ok(0.0);
-        }
+pub fn cosine_similarity(vec1: &[f32], vec2: &[f32]) -> Result<f32, EmbeddingError> {
+    if vec1.len() != vec2.len() {
+        return Err(EmbeddingError::VectorDimensionMismatch(
+            vec1.len(),
+            vec2.len(),
+        ));
+    }
 
-        Ok
+    let dot_product: f32 = vec1.iter().zip(vec2.iter()).map(|(a, b)| a * b).sum();
+    let norm1 = vec1.iter().map(|&v| v * v).sum::<f32>().sqrt();
+    let norm2 = vec2.iter().map(|&v| v * v).sum::<f32>().sqrt();
+
+    if norm1 == 0.0 || norm2 == 0.0 {
+        return Ok(0.0);
+    }
+
+    Ok(dot_product / (norm1 * norm2))
+}
+
+pub fn init_embedding_service(
+    model_name: &str,
+    tokenizer: Tokenizer,
+    embedding_dim: usize,
+) -> Result<EmbeddingService, EmbeddingError> {
+    EmbeddingService::init(model_name, tokenizer, embedding_dim)
+}
+
+pub fn generate_embedding(
+    service: &mut EmbeddingService,
+    text: &str,
+) -> Result<Embedding, EmbeddingError> {
+    service.generate_embedding(text)
+}
+
+pub fn store_embedding(
+    service: &EmbeddingService,
+    embedding: &Embedding,
+    event_id: &str,
+) -> Result<(), EmbeddingError> {
+    service.store_embedding(embedding, event_id)
+}
+
+pub fn get_embedding(
+    service: &EmbeddingService,
+    event_id: &str,
+) -> Result<Embedding, EmbeddingError> {
+    service.get_embedding(event_id)
+}
+
+pub fn batch_generate_and_store(
+    service: &mut EmbeddingService,
+    items: &[(&str, &str)],
+) -> Result<Vec<Embedding>, EmbeddingError> {
+    let mut generated = Vec::with_capacity(items.len());
+    for (event_id, text) in items {
+        let embedding = service.generate_embedding(text)?;
+        service.store_embedding(&embedding, event_id)?;
+        generated.push(embedding);
+    }
+    Ok(generated)
+}
+
+pub fn search_similar(
+    service: &EmbeddingService,
+    query_vector: &[f32],
+    limit: usize,
+) -> Result<Vec<Similarity>, EmbeddingError> {
+    let mut stmt = service
+        .conn
+        .prepare(
+            "SELECT event_id, embedding
+             FROM event_embeddings
+             WHERE model_name = ?1",
+        )
+        .map_err(EmbeddingError::DatabaseError)?;
+    let rows = stmt
+        .query_map([service.model_name.as_str()], |row| {
+            let event_id: String = row.get(0)?;
+            let embedding_bytes: Vec<u8> = row.get(1)?;
+            Ok((event_id, embedding_bytes))
+        })
+        .map_err(EmbeddingError::DatabaseError)?;
+    let raw = rows
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(EmbeddingError::DatabaseError)?;
+
+    if raw.is_empty() {
+        return Err(EmbeddingError::NoEmbeddingsFound);
+    }
+
+    let mut similarities: Vec<Similarity> = raw
+        .into_iter()
+        .map(|(event_id, bytes)| {
+            let vector = bytes_to_vector(&bytes)?;
+            let score = cosine_similarity(query_vector, &vector)?;
+            Ok(Similarity { event_id, score })
+        })
+        .collect::<Result<Vec<_>, EmbeddingError>>()?;
+
+    similarities.sort_by(|a, b| b.score.total_cmp(&a.score));
+    similarities.truncate(limit);
+    Ok(similarities)
+}
+
+pub fn get_embedding_stats(service: &EmbeddingService) -> Result<EmbeddingStats, EmbeddingError> {
+    let total_embeddings: i64 = service
+        .conn
+        .query_row(
+            "SELECT COUNT(*) FROM event_embeddings WHERE model_name = ?1",
+            [service.model_name.as_str()],
+            |row| row.get(0),
+        )
+        .map_err(EmbeddingError::DatabaseError)?;
+
+    let total_events: i64 = service
+        .conn
+        .query_row("SELECT COUNT(*) FROM events", [], |row| row.get(0))
+        .map_err(EmbeddingError::DatabaseError)?;
+
+    let mut stmt = service
+        .conn
+        .prepare(
+            "SELECT embedding
+             FROM event_embeddings
+             WHERE model_name = ?1",
+        )
+        .map_err(EmbeddingError::DatabaseError)?;
+    let rows = stmt
+        .query_map([service.model_name.as_str()], |row| {
+            row.get::<_, Vec<u8>>(0)
+        })
+        .map_err(EmbeddingError::DatabaseError)?;
+    let blobs = rows
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(EmbeddingError::DatabaseError)?;
+
+    let mut total_len = 0.0f32;
+    let mut count = 0usize;
+    for blob in blobs {
+        let vector = bytes_to_vector(&blob)?;
+        let length = vector.iter().map(|v| v * v).sum::<f32>().sqrt();
+        total_len += length;
+        count += 1;
+    }
+
+    Ok(EmbeddingStats {
+        total_embeddings,
+        total_events,
+        model_name: service.model_name.clone(),
+        embedding_dim: service.embedding_dim,
+        average_vector_length: if count == 0 {
+            0.0
+        } else {
+            total_len / count as f32
+        },
+    })
+}

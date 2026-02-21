@@ -36,10 +36,10 @@ pub fn chunk_content(content: &str, max_chunk_size: usize) -> Vec<(usize, usize,
                 break;
             }
         }
-        if hard_end == start
-            && let Some((offset, ch)) = content[start..].char_indices().next()
-        {
-            hard_end = start + offset + ch.len_utf8();
+        if hard_end == start {
+            if let Some((offset, ch)) = content[start..].char_indices().next() {
+                hard_end = start + offset + ch.len_utf8();
+            }
         }
         let window = &content[start..hard_end];
 
@@ -130,7 +130,7 @@ pub fn search_chunks(conn: &Connection, term: &str, limit: Option<i64>) -> Resul
         })
     })?;
 
-    Ok(rows.filter_map(Result::ok).collect())
+    rows.collect()
 }
 
 /// List all chunks for an event
@@ -153,5 +153,5 @@ pub fn list_chunks(conn: &Connection, event_id: &str) -> Result<Vec<Chunk>> {
         })
     })?;
 
-    Ok(rows.filter_map(Result::ok).collect())
+    rows.collect()
 }

@@ -24,10 +24,6 @@ rand = "0.8"
 # Embedding and vector dependencies
 # Using tokenizers for efficient text tokenization
 tokenizers = "0.20"
-# Using rust-bert for embedding generation (optional - remove if not needed)
-rust-bert = { version = "0.23", optional = true }
-# Using hf-hub for loading models (optional - remove if not needed)
-hf-hub = { version = "0.3", optional = true }
 # Using ndarray for vector operations
 ndarray = "0.15"
 # Using approx for numerical comparisons
@@ -35,7 +31,7 @@ approx = "0.5"
 
 [features]
 default = []
-embedding = ["rust-bert", "hf-hub"]
+embedding = []
 
 [lib]
 name = "mirror_log"
