@@ -4,7 +4,7 @@
 *.db-wal
 
 # Rust build artifacts
-/target/
+target/
 **/*.rs.bk
 *.pdb
 
@@ -21,5 +21,5 @@
 # OS
 .DS_Store
 Thumbs.db
-/target/
+target/
 .aider*
