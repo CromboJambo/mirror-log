@@ -14,6 +14,7 @@ Welcome to Mirror-Log, your local-first, SQLite-backed append-only event log for
 8. [Troubleshooting](#troubleshooting)
 9. [Best Practices](#best-practices)
 10. [FAQ](#faq)
+11. [Canonical Pipeline](#canonical-pipeline)
 
 ## Getting Started
 
@@ -36,6 +37,21 @@ Mirror-Log is an append-only event log designed for:
 - **No hidden layers**: Direct SQL remains first-class
 - **Source-aware logging**: Every event tracks where it came from
 - **Semantic Embedding Support**: Events can be enriched with vector embeddings for similarity search
+
+## Canonical Pipeline
+
+Mirror-Log ingestion follows this canonical sequence:
+
+1. `capture`
+2. `persist`
+3. `structure`
+4. `enrich` (human-level via explicit structure)
+
+Nested governance structure:
+
+`law -> principle -> right -> rule -> guideline`
+
+See `docs/CANONICAL_PIPELINE.md` for the full contract.
 
 ## Installation
 

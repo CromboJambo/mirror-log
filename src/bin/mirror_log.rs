@@ -1,20 +1,8 @@
-        Commands::Embed { source, model } => {
-            eprintln!(
-                "⚠️  Embed command temporarily disabled (embedding features not yet implemented)"
-            );
-            eprintln!("This feature will be available in a future release.");
-            println!("To enable embedding support, add the 'embedding' feature to your Cargo.toml");
-            std::process::exit(0);
-        }
+use std::path::PathBuf;
 
-        Commands::SearchSimilar { term, limit } => {
-            eprintln!("⚠️  Search similar command temporarily disabled");
-            eprintln!("Semantic similarity search is coming in the next release.");
-            println!("Run `mirror-log help` to see other available commands.");
-            std::process::exit(0);
-        }
-    }
-}
+use chrono::{DateTime, TimeZone, Utc};
+use clap::{Parser, Subcommand};
+use mirror_log::{chunk, db, log, pipeline, view};
 
 #[derive(Parser)]
 #[command(name = "mirror-log")]
@@ -47,7 +35,7 @@ enum Commands {
     /// Add a file's contents as a single event
     AddFile {
         /// Path to the file
-        path: std::path::PathBuf,
+        path: PathBuf,
 
         #[arg(short, long, default_value = "file")]
         source: String,
@@ -125,7 +113,6 @@ enum Commands {
 
 fn main() {
     let cli = Cli::parse();
-
     let db_path = cli.db;
     let conn = db::init_db(&db_path).expect("Failed to open database");
 
@@ -135,41 +122,52 @@ fn main() {
             source,
             meta,
         } => {
-            let id = log::append(&conn, &source, &content, meta.as_deref())
-                .expect("Failed to append event");
-            println!("Added: {}", id);
+            let result = pipeline::ingest_single(
+                &conn,
+                pipeline::IngestRequest::new(&source, &content, meta.as_deref()),
+            )
+            .expect("Failed to append event");
+
+            if result.chunk_count > 0 {
+                println!(
+                    "Added: {} (created {} chunks)",
+                    result.event_id, result.chunk_count
+                );
+            } else {
+                println!("Added: {}", result.event_id);
+            }
         }
 
         Commands::AddFile { path, source, meta } => {
             let content = std::fs::read_to_string(&path).expect("Failed to read file");
+            let result = pipeline::ingest_single(
+                &conn,
+                pipeline::IngestRequest::new(&source, &content, meta.as_deref()),
+            )
+            .expect("Failed to append event");
 
-            let timestamp = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs() as i64;
-
-            let id = log::append(&conn, &source, &content, meta.as_deref())
-                .expect("Failed to append event");
-
-            // Auto-chunk large files (> 2000 chars)
-            if content.len() > 2000 {
-                let chunk_count = chunk::create_chunks(&conn, &id, &content, timestamp, 1500)
-                    .expect("Failed to create chunks");
+            if result.chunk_count > 0 {
                 println!(
                     "Added file: {} ({}) - created {} chunks",
                     path.display(),
-                    id,
-                    chunk_count
+                    result.event_id,
+                    result.chunk_count
                 );
             } else {
-                println!("Added file: {} ({})", path.display(), id);
+                println!("Added file: {} ({})", path.display(), result.event_id);
             }
         }
 
         Commands::Stdin { source, meta } => {
-            match log::append_stdin(&conn, &source, meta.as_deref(), cli.batch_size) {
-                Ok(ids) => {
-                    println!("Added {} events", ids.len());
+            match pipeline::ingest_stdin(&conn, &source, meta.as_deref(), cli.batch_size) {
+                Ok(result) => {
+                    println!("Added {} events", result.event_ids.len());
+                    if result.total_chunks > 0 {
+                        println!(
+                            "Structured {} events into {} chunks",
+                            result.chunked_events, result.total_chunks
+                        );
+                    }
                 }
                 Err(e) => {
                     eprintln!("Failed to read from stdin: {}", e);
@@ -187,7 +185,6 @@ fn main() {
             println!("  Duplicate events: {}", total - unique);
 
             if total > 0 {
-                use chrono::{DateTime, TimeZone, Utc};
                 let oldest_dt: DateTime<Utc> = Utc.timestamp_opt(oldest, 0).unwrap();
                 let newest_dt: DateTime<Utc> = Utc.timestamp_opt(newest, 0).unwrap();
 
@@ -233,7 +230,6 @@ fn main() {
             chunks,
         } => {
             if chunks {
-                // Search chunks instead of full events
                 let found_chunks =
                     chunk::search_chunks(&conn, &term, Some(20)).expect("Failed to search chunks");
 
@@ -242,7 +238,6 @@ fn main() {
                 } else {
                     println!("Found {} chunks:\n", found_chunks.len());
                     for chunk in found_chunks {
-                        // Get parent event for context
                         let event = view::get_by_id(&conn, &chunk.event_id)
                             .expect("Failed to get parent event");
 
@@ -278,7 +273,6 @@ fn main() {
                     }
                 }
             } else {
-                // Original full-event search
                 let events = view::search(&conn, &term).expect("Failed to search events");
 
                 if events.is_empty() {
@@ -326,7 +320,6 @@ fn main() {
             println!("Total events: {}", count);
 
             if count > 0 {
-                use chrono::{DateTime, TimeZone, Utc};
                 let oldest_dt: DateTime<Utc> = Utc.timestamp_opt(oldest, 0).unwrap();
                 let newest_dt: DateTime<Utc> = Utc.timestamp_opt(newest, 0).unwrap();
 
@@ -357,7 +350,7 @@ fn main() {
             }
         }
 
-        Commands::Embed { source, model } => {
+        Commands::Embed { .. } => {
             eprintln!(
                 "⚠️  Embed command temporarily disabled (embedding features not yet implemented)"
             );
@@ -366,7 +359,7 @@ fn main() {
             std::process::exit(0);
         }
 
-        Commands::SearchSimilar { term, limit } => {
+        Commands::SearchSimilar { .. } => {
             eprintln!("⚠️  Search similar command temporarily disabled");
             eprintln!("Semantic similarity search is coming in the next release.");
             println!("Run `mirror-log help` to see other available commands.");

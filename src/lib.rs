@@ -4,11 +4,13 @@ pub mod embedding;
 pub mod export;
 pub mod iteration;
 pub mod log;
+pub mod pipeline;
 pub mod view;
 
 // Re-export commonly used types and functions
 pub use log::{
-    append, append_batch, append_stdin, is_duplicate, stats, verify_integrity, IntegrityReport,
+    append, append_batch, append_stdin, is_duplicate, stats, verify_integrity, AppendReceipt,
+    IntegrityReport,
 };
 pub use view::{by_ingestion_time, dedup_stats, find_duplicates, Event};
 

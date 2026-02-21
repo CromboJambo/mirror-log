@@ -11,6 +11,14 @@ pub struct IntegrityReport {
     pub orphan_chunks: i64,
 }
 
+#[derive(Debug, Clone)]
+pub struct AppendReceipt {
+    pub id: String,
+    pub timestamp: i64,
+    pub ingested_at: i64,
+    pub content_hash: String,
+}
+
 fn unix_now_secs() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -25,6 +33,16 @@ pub fn append(
     content: &str,
     meta: Option<&str>,
 ) -> Result<String> {
+    Ok(append_with_receipt(conn, source, content, meta)?.id)
+}
+
+/// Append a single event and return the canonical persistence receipt.
+pub fn append_with_receipt(
+    conn: &Connection,
+    source: &str,
+    content: &str,
+    meta: Option<&str>,
+) -> Result<AppendReceipt> {
     let id = Uuid::new_v4().to_string();
     let now = unix_now_secs();
     let last_ts: Option<i64> =
@@ -54,7 +72,12 @@ pub fn append(
         ],
     )?;
 
-    Ok(id)
+    Ok(AppendReceipt {
+        id,
+        timestamp,
+        ingested_at,
+        content_hash,
+    })
 }
 
 /// Append multiple events from a batch in a single transaction
@@ -64,7 +87,20 @@ pub fn append_batch(
     contents: &[&str],
     meta: Option<&str>,
 ) -> Result<Vec<String>> {
-    let mut ids = Vec::new();
+    Ok(append_batch_with_receipts(conn, source, contents, meta)?
+        .into_iter()
+        .map(|receipt| receipt.id)
+        .collect())
+}
+
+/// Append multiple events and return a receipt for each inserted event.
+pub fn append_batch_with_receipts(
+    conn: &Connection,
+    source: &str,
+    contents: &[&str],
+    meta: Option<&str>,
+) -> Result<Vec<AppendReceipt>> {
+    let mut receipts = Vec::new();
 
     // Wrap all inserts in a single transaction for atomicity
     let tx = conn.unchecked_transaction()?;
@@ -100,13 +136,18 @@ pub fn append_batch(
             ],
         )?;
 
-        ids.push(id);
+        receipts.push(AppendReceipt {
+            id,
+            timestamp,
+            ingested_at,
+            content_hash,
+        });
         timestamp += 1;
     }
 
     tx.commit()?;
 
-    Ok(ids)
+    Ok(receipts)
 }
 
 /// Append events from stdin with configurable batch size

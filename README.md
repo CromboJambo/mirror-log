@@ -60,6 +60,7 @@ cargo install --path .
 ## Documentation
 
 - **[User Guide](docs/USER_GUIDE.md)** - Comprehensive documentation with examples, advanced features, and best practices
+- **[Canonical Pipeline](docs/CANONICAL_PIPELINE.md)** - Formal order of operations and governance layers
 - **[API Documentation](src/lib.rs)** - Library usage for programmatic access
 
 ## Core Principles
@@ -69,6 +70,19 @@ cargo install --path .
 - **No hidden layers**: Direct SQL remains first-class
 - **Source-aware logging**: Every event tracks where it came from
 - **Semantic Embedding Support**: Events can be enriched with vector embeddings for similarity search
+
+## Canonical Pipeline
+
+Mirror-Log ingestion follows one sequence:
+
+1. `capture`
+2. `persist`
+3. `structure`
+4. `enrich` (human-level, via explicit structure)
+
+The nested design structure is:
+
+`law -> principle -> right -> rule -> guideline`
 
 ## Data Model
 
