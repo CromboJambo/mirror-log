@@ -4,6 +4,8 @@ An append-only event log for capturing thoughts, notes, and data you do not want
 
 `mirror-log` is local-first, SQLite-backed, and designed to be boring in the best way: easy to inspect, easy to script, and hard to accidentally lose context.
 
+Version 0.1.6 includes semantic embedding support and enhanced iteration tracking capabilities.
+
 ## Quick Start
 
 ```bash
@@ -33,6 +35,12 @@ mirror-log info
 
 # Integrity verification (hash + relational checks)
 mirror-log verify
+
+# Generate embeddings for events (coming in next version)
+# mirror-log embed --source journal
+
+# Search similar events using embeddings (coming in next version)
+# mirror-log search-similar "overhead allocation" --limit 5
 ```
 
 ## Installation
@@ -60,6 +68,7 @@ cargo install --path .
 - **SQLite is source of truth**: Your data stays local and inspectable
 - **No hidden layers**: Direct SQL remains first-class
 - **Source-aware logging**: Every event tracks where it came from
+- **Semantic Embedding Support**: Events can be enriched with vector embeddings for similarity search
 
 ## Data Model
 
@@ -99,6 +108,12 @@ ORDER BY COUNT(*) DESC;
 SELECT COUNT(*) AS total,
        COUNT(DISTINCT content_hash) AS unique_events
 FROM events;
+
+# View embeddings (coming in next version)
+# SELECT e.id, e.content, emb.embedding
+# FROM events e
+# JOIN event_embeddings emb ON e.id = emb.event_id
+# LIMIT 10;
 ```
 
 ## Development

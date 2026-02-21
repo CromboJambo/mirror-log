@@ -93,6 +93,24 @@ enum Commands {
 
     /// Verify database integrity invariants
     Verify,
+
+    /// Generate embeddings for events in a source
+    Embed {
+        #[arg(short, long, default_value = "cli")]
+        source: String,
+
+        #[arg(long)]
+        model: Option<String>,
+    },
+
+    /// Search similar events using embeddings
+    SearchSimilar {
+        /// Search term (used to generate query vector)
+        term: String,
+
+        #[arg(long, default_value_t = 10)]
+        limit: usize,
+    },
 }
 
 fn main() {
@@ -327,6 +345,18 @@ fn main() {
                 println!("  Status: FAILED ({} issues)", issues);
                 std::process::exit(1);
             }
+        }
+
+        Commands::Embed { source, model } => {
+            println!("Embed command not implemented in this version (coming in next release)");
+            std::process::exit(1);
+        }
+
+        Commands::SearchSimilar { term, limit } => {
+            println!(
+                "Search similar command not implemented in this version (coming in next release)"
+            );
+            std::process::exit(1);
         }
     }
 }

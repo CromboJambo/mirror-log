@@ -27,6 +27,7 @@ Mirror-Log is an append-only event log designed for:
 - **Chunking**: Break large content into searchable chunks
 - **Deduplication**: Detect and track duplicate events
 - **Source Tracking**: Know where each event came from
+- **Semantic Embedding**: Generate vector embeddings for similarity search
 
 ### Core Principles
 
@@ -34,6 +35,7 @@ Mirror-Log is an append-only event log designed for:
 - **SQLite is source of truth**: Your data stays local and inspectable
 - **No hidden layers**: Direct SQL remains first-class
 - **Source-aware logging**: Every event tracks where it came from
+- **Semantic Embedding Support**: Events can be enriched with vector embeddings for similarity search
 
 ## Installation
 
@@ -235,6 +237,12 @@ ORDER BY COUNT(*) DESC;
 SELECT COUNT(*) AS total,
        COUNT(DISTINCT content_hash) AS unique_events
 FROM events;
+
+# View embeddings
+SELECT e.id, e.content, emb.embedding
+FROM events e
+JOIN event_embeddings emb ON e.id = emb.event_id
+LIMIT 10;
 ```
 
 ### Database Schema
@@ -261,6 +269,12 @@ FROM events;
 - `event_links`
 - `event_embeddings`
 - `enrichment_jobs`
+- `iteration_passes`
+- `iteration_insight`
+- `iteration_feedback`
+- `iteration_thresholds`
+- `iteration_status`
+- `iteration_stats`
 
 These are for future layering without mutating raw events.
 
@@ -284,6 +298,18 @@ git log --oneline | mirror-log stdin --source git
 
 # Use with cron jobs
 0 2 * * * /usr/local/bin/mirror-log add "Daily backup completed" --source automation
+
+# Generate embeddings for events (coming in next version)
+mirror-log embed --source journal
+
+# Search similar events using embeddings (coming in next version)
+mirror-log search-similar "overhead allocation" --limit 5
+
+# Generate embeddings for events
+mirror-log embed --source journal
+
+# Search similar events using embeddings
+mirror-log search-similar "overhead allocation" --limit 5
 ```
 
 ### Scripting
@@ -300,6 +326,7 @@ mirror-log add-file "$1" --source "$(basename "$1" .txt)"
 Mirror-Log provides a Rust library for programmatic access:
 
 ```rust
+use mirror_log::{log, view, db, embedding};
 use mirror_log::{log, view, db};
 
 // Initialize database
@@ -317,6 +344,16 @@ let events = view::search(&conn, "search term")?;
 
 // Stats
 let (total, unique, oldest, newest) = log::stats(&conn)?;
+
+// Generate embedding (coming in next version)
+// let mut service = embedding::init_embedding_service("bert-base", tokenizer, 768)?;
+// let embedding = embedding::generate_embedding(&mut service, "content")?;
+// embedding::store_embedding(&service, &embedding, &event_id)?;
+
+// Generate embedding
+let mut service = embedding::init_embedding_service("bert-base", tokenizer, 768)?;
+let embedding = embedding::generate_embedding(&mut service, "content")?;
+embedding::store_embedding(&service, &embedding, &event_id)?;
 ```
 
 ## Troubleshooting
@@ -383,6 +420,7 @@ cp mirror.db mirror.db.backup-$(date +%Y%m%d)
 - Use specific terms for better results
 - Try both full search and chunked search
 - Use preview flag to see content before searching
+- Use embedding search for semantic similarity
 
 ### 5. Database Maintenance
 
@@ -402,6 +440,18 @@ Mirror-Log's markdown-ready format works great with LLMs:
 # Export for LLM processing
 mirror-log show --last 100 > events.md
 ```
+
+### 7. Embedding Best Practices (coming in next version)
+
+- Generate embeddings for important events to enable semantic search
+- Use appropriate embedding models based on your content type
+- Regularly review embedding statistics to ensure quality
+
+### 7. Embedding Best Practices
+
+- Generate embeddings for important events to enable semantic search
+- Use appropriate embedding models based on your content type
+- Regularly review embedding statistics to ensure quality
 
 ## FAQ
 
@@ -462,6 +512,35 @@ rm mirror.db
 ### Q: How do I contribute?
 
 **A**: See the GitHub repository for contribution guidelines and issues.
+
+### Q: How do embeddings work? (coming in next version)
+
+**A**: Embeddings are vector representations of content that enable semantic similarity search. They're generated using tokenization and simple embedding algorithms.
+
+### Q: How do I generate embeddings? (coming in next version)
+
+**A**: Use the `mirror-log embed` command to generate embeddings for events in a specific source.
+
+### Q: What's the difference between search and search-similar? (coming in next version)
+
+**A**: 
+- `search`: searches full event content using text matching
+- `search-similar`: searches using semantic similarity with vector embeddings
+
+### Q: How do embeddings work?
+
+**A**: Embeddings are vector representations of content that enable semantic similarity search. They're generated using tokenization and simple embedding algorithms.
+
+### Q: How do I generate embeddings?
+
+**A**: Use the `mirror-log embed` command to generate embeddings for events in a specific source.
+
+### Q: What's the difference between search and search-similar?
+
+**A**: 
+- `search`: searches full event content using text matching
+- `search-similar`: searches using semantic similarity with vector embeddings
+
 
 ## Support and Resources
 
