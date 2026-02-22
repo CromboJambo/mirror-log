@@ -425,12 +425,78 @@ fn main() {
             std::process::exit(1);
         }
 
-        Commands::SearchSimilar { .. } => {
-            eprintln!("⚠️  Search similar command requires the 'embedding' feature");
-            eprintln!("Add 'embedding' to your Cargo.toml dependencies:");
-            eprintln!("  [features]");
-            eprintln!("  embedding = [\"tokenizers\", \"ndarray\", \"approx\", \"serde\", \"thiserror\"]");
-            std::process::exit(1);
+        Commands::SearchSimilar { term, limit } => {
+            #[cfg(feature = "embedding")]
+            {
+                let conn = db::init_db(&cli.db).expect("Failed to open database");
+
+                // Initialize embedding service - this is a simplified version
+                match EmbeddingService::init("token-bucket", /* tokenizer placeholder */, 512) {
+                    Ok(service) => {
+                        println!("Searching for similar events to: '{}'", term);
+
+                        let query_embedding = match service.generate_embedding(&term) {
+                            Ok(embedding) => embedding,
+                            Err(e) => {
+                                eprintln!("Failed to generate query embedding: {}", e);
+                                std::process::exit(1);
+                            }
+                        };
+
+                        match service.search_similar(&query_embedding.vector, limit) {
+                            Ok(similarities) => {
+                                if similarities.is_empty() {
+                                    println!("No similar events found");
+                                    return;
+                                }
+
+                                println!("Found {} similar events:\n", similarities.len());
+
+                                for similarity in similarities {
+                                    match view::get_by_id(&conn, &similarity.event_id) {
+                                        Ok(event) => {
+                                            println!("[{}] {}", event.format_time(), event.source);
+                                            println!("ID: {}", event.id);
+                                            println!("Similarity Score: {:.4}", similarity.score);
+
+                                            if let Some(max_chars) = Some(200) {
+                                                println!("{}", event.preview_content(max_chars));
+                                            } else {
+                                                println!("{}", event.content);
+                                            }
+
+                                            if let Some(meta) = event.meta {
+                                                println!("Meta: {}", meta);
+                                            }
+                                            println!();
+                                        }
+                                        Err(_) => {
+                                            println!("Event ID {} not found", similarity.event_id);
+                                        }
+                                    }
+                                }
+                            },
+                            Err(e) => {
+                                eprintln!("Failed to search similar events: {}", e);
+                                std::process::exit(1);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to initialize embedding service: {}", e);
+                        std::process::exit(1);
+                    }
+                }
+            }
+
+            #[cfg(not(feature = "embedding"))]
+            {
+                eprintln!("⚠️  Search similar command requires the 'embedding' feature");
+                eprintln!("Add 'embedding' to your Cargo.toml dependencies:");
+                eprintln!("  [features]");
+                eprintln!("  embedding = [\"tokenizers\", \"ndarray\", \"approx\", \"serde\", \"thiserror\"]");
+                std::process::exit(1);
+            }
         }
     }
 }

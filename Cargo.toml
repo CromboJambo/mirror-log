@@ -26,10 +26,11 @@ ndarray = { version = "0.15", optional = true }
 approx = { version = "0.5", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 thiserror = { version = "1.0", optional = true }
+tracing = { version = "0.1", optional = true }
 
 [features]
 default = ["embedding"]
-embedding = ["tokenizers", "ndarray", "approx", "serde", "thiserror"]
+embedding = ["tokenizers", "ndarray", "approx", "serde", "thiserror", "tracing"]
 
 [lib]
 name = "mirror_log"
@@ -39,3 +40,7 @@ path = "src/lib.rs"
 strip = true
 opt-level = "z"
 lto = true
+
+[[bin]]
+name = "mirror-log"
+path = "src/bin/mirror_log.rs"
