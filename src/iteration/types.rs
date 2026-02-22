@@ -3,7 +3,6 @@
 //! This module defines the fundamental types used throughout the iteration
 //! tracking system, including pass types, feedback quality, and completion reasons.
 
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -144,7 +143,7 @@ impl fmt::Display for CompletionReason {
 }
 
 /// Represents the state of an iteration cycle.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct IterationStatus {
     /// Unique identifier for this status record
     pub id: String,
@@ -178,7 +177,7 @@ pub struct IterationStatus {
 }
 
 /// Represents a single insight measurement for an iteration.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct IterationInsight {
     /// Unique identifier
     pub id: String,
@@ -206,7 +205,7 @@ pub struct IterationInsight {
 }
 
 /// Represents detailed feedback for a specific iteration.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct IterationFeedback {
     /// Unique identifier
     pub id: String,
@@ -234,7 +233,7 @@ pub struct IterationFeedback {
 }
 
 /// Represents aggregated statistics for an event's iteration cycle.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct IterationStats {
     /// Unique identifier
     pub id: String,
@@ -274,7 +273,7 @@ pub struct IterationStats {
 }
 
 /// Represents a threshold configuration for iteration stopping conditions.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct IterationThreshold {
     /// Unique identifier
     pub id: String,

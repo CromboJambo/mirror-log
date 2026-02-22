@@ -15,11 +15,15 @@ pub use log::{
 pub use view::{by_ingestion_time, dedup_stats, find_duplicates, Event};
 
 // Re-export embedding types and functions
-// Temporarily disabled - embedding module has missing dependencies
-// pub use embedding::{
-//     batch_generate_and_store, cosine_similarity, generate_embedding, get_embedding,
-//     get_embedding_stats, init_embedding_service, normalize_vector, search_similar, store_embedding,
-//     Embedding, EmbeddingError, EmbeddingStats, Similarity,
-// };
+pub use embedding::{
+    batch_generate_and_store, cosine_similarity, generate_embedding, get_embedding,
+    get_embedding_stats, init_embedding_service, normalize_vector, search_similar, store_embedding,
+    Embedding, EmbeddingError, EmbeddingStats, Similarity,
+};
 
-// Re-export iteration types (module is currently placeholder)
+// Re-export iteration types and functions
+pub use iteration::{
+    get_iteration_passes, get_iteration_status, insert_iteration_pass, update_iteration_status,
+    CompletionReason, FeedbackQuality, IterationError, IterationFeedback, IterationInsight,
+    IterationPass, IterationStats, IterationStatus, IterationThreshold, PassType,
+};

@@ -1,8 +1,10 @@
 use std::path::PathBuf;
 
-use chrono::{DateTime, TimeZone, Utc};
 use clap::{Parser, Subcommand};
 use mirror_log::{chunk, db, log, pipeline, view};
+
+#[cfg(feature = "embedding")]
+use mirror_log::embedding::{EmbeddingService, EmbeddingError};
 
 #[derive(Parser)]
 #[command(name = "mirror-log")]
@@ -97,8 +99,8 @@ enum Commands {
         #[arg(short, long, default_value = "cli")]
         source: String,
 
-        #[arg(long)]
-        model: Option<String>,
+        #[arg(long, default_value = "token-bucket")]
+        model: String,
     },
 
     /// Search similar events using embeddings
@@ -350,20 +352,85 @@ fn main() {
             }
         }
 
+        #[cfg(feature = "embedding")]
+        Commands::Embed { source, model } => {
+            let conn = db::init_db(&cli.db).expect("Failed to open database");
+
+            // Initialize embedding service
+            // Note: This uses a placeholder tokenizer - real implementation would load a proper tokenizer
+            match EmbeddingService::init(&model, /* tokenizer placeholder */, 512) {
+                Ok(service) => {
+                    // Query events by source
+                    let events = view::by_source(&conn, &source, None)
+                        .expect("Failed to query events");
+
+                    if events.is_empty() {
+                        println!("No events found for source: {}", source);
+                        std::process::exit(0);
+                    }
+
+                    println!("Generating embeddings for {} events...", events.len());
+
+                    let mut success_count = 0;
+                    let mut error_count = 0;
+
+                    for event in events {
+                        match service.generate_embedding(&event.content) {
+                            Ok(embedding) => {
+                                if let Err(e) = service.store_embedding(&embedding, &event.id) {
+                                    eprintln!("Failed to store embedding for event {}: {}", event.id, e);
+                                    error_count += 1;
+                                } else {
+                                    success_count += 1;
+                                }
+                            }
+                            Err(e) => {
+                                eprintln!("Failed to generate embedding for event {}: {}", event.id, e);
+                                error_count += 1;
+                            }
+                        }
+                    }
+
+                    println!("Embedding generation complete:");
+                    println!("  Success: {}", success_count);
+                    println!("  Errors: {}", error_count);
+
+                    if success_count > 0 {
+                        let stats = match service.get_embedding_stats() {
+                            Ok(s) => s,
+                            Err(e) => {
+                                eprintln!("Failed to get embedding stats: {}", e);
+                                continue;
+                            }
+                        };
+                        println!("  Total embeddings: {}", stats.total_embeddings);
+                        println!("  Total events with embeddings: {}", stats.total_events);
+                        println!("  Average vector length: {:.2}", stats.average_vector_length);
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Failed to initialize embedding service: {}", e);
+                    eprintln!("Make sure you have the 'embedding' feature enabled in Cargo.toml");
+                    std::process::exit(1);
+                }
+            }
+        }
+
+        #[cfg(not(feature = "embedding"))]
         Commands::Embed { .. } => {
-            eprintln!(
-                "⚠️  Embed command temporarily disabled (embedding features not yet implemented)"
-            );
-            eprintln!("This feature will be available in a future release.");
-            println!("To enable embedding support, add the 'embedding' feature to your Cargo.toml");
-            std::process::exit(0);
+            eprintln!("⚠️  Embed command requires the 'embedding' feature");
+            eprintln!("Add 'embedding' to your Cargo.toml dependencies:");
+            eprintln!("  [features]");
+            eprintln!("  embedding = [\"tokenizers\", \"ndarray\", \"approx\", \"serde\", \"thiserror\"]");
+            std::process::exit(1);
         }
 
         Commands::SearchSimilar { .. } => {
-            eprintln!("⚠️  Search similar command temporarily disabled");
-            eprintln!("Semantic similarity search is coming in the next release.");
-            println!("Run `mirror-log help` to see other available commands.");
-            std::process::exit(0);
+            eprintln!("⚠️  Search similar command requires the 'embedding' feature");
+            eprintln!("Add 'embedding' to your Cargo.toml dependencies:");
+            eprintln!("  [features]");
+            eprintln!("  embedding = [\"tokenizers\", \"ndarray\", \"approx\", \"serde\", \"thiserror\"]");
+            std::process::exit(1);
         }
     }
 }

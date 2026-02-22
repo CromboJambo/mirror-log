@@ -22,7 +22,7 @@ pub fn get_iteration_status(conn: &Connection, event_id: &str) -> Result<Option<
 
     match stmt.query_row([event_id], |row| row.get(0)) {
         Ok(status) => Ok(Some(status)),
-        Err(rusqlite::Error::StatementEmpty) => Ok(None),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
         Err(e) => Err(e),
     }
 }

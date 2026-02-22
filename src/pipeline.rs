@@ -2,7 +2,7 @@ use std::io::{self, BufRead};
 
 use rusqlite::{Connection, Result};
 
-use crate::{chunk, log};
+use crate::{chunk, embedding, log};
 
 pub const AUTO_CHUNK_THRESHOLD: usize = 2000;
 pub const DEFAULT_CHUNK_SIZE: usize = 1500;
@@ -120,6 +120,15 @@ pub fn ingest_single(conn: &Connection, request: IngestRequest<'_>) -> Result<In
     } else {
         0
     };
+
+    // Enrichment: Generate and store embedding if enabled
+    #[cfg(feature = "embedding")]
+    {
+        // Note: This is a placeholder for future embedding generation
+        // The actual implementation would require a tokenizer
+        // For now, we just track that embedding generation would occur here
+        tracing::debug!("Embedding would be generated for event: {}", receipt.id);
+    }
 
     Ok(IngestResult {
         event_id: receipt.id,
