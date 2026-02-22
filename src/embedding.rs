@@ -365,6 +365,33 @@ impl EmbeddingService {
 
 // Public helper functions
 
+pub fn normalize_vector(vector: &[f32]) -> Vec<f32> {
+    let norm = vector.iter().map(|v| v * v).sum::<f32>().sqrt();
+    if norm == 0.0 {
+        return vector.to_vec();
+    }
+    vector.iter().map(|v| v / norm).collect()
+}
+
+pub fn cosine_similarity(vec1: &[f32], vec2: &[f32]) -> Result<f32, EmbeddingError> {
+    if vec1.len() != vec2.len() {
+        return Err(EmbeddingError::VectorDimensionMismatch(
+            vec1.len(),
+            vec2.len(),
+        ));
+    }
+
+    let dot_product: f32 = vec1.iter().zip(vec2.iter()).map(|(a, b)| a * b).sum();
+    let norm1 = vec1.iter().map(|&v| v * v).sum::<f32>().sqrt();
+    let norm2 = vec2.iter().map(|&v| v * v).sum::<f32>().sqrt();
+
+    if norm1 == 0.0 || norm2 == 0.0 {
+        return Ok(0.0);
+    }
+
+    Ok(dot_product / (norm1 * norm2))
+}
+
 pub fn init_embedding_service(
     model_name: &str,
     tokenizer: Tokenizer,

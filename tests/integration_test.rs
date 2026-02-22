@@ -411,7 +411,9 @@ mod cli_tests {
     }
 
     fn get_binary_path() -> PathBuf {
-        PathBuf::from(env!("CARGO_BIN_EXE_mirror_log"))
+        let exe = std::env::var("CARGO_BIN_EXE_mirror_log")
+            .expect("CARGO_BIN_EXE_mirror_log environment variable not set");
+        PathBuf::from(exe)
     }
 
     #[test]

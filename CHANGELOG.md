@@ -34,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - None
 
-## [0.1.5] - 2024-04-15
+## [0.1.5] - 2026-01-26
 
 ### Added
 - Initial release of mirror-log with core functionality:
