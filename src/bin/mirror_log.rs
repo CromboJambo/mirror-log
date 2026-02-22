@@ -1,11 +1,11 @@
-use std::path::PathBuf;
-
+use chrono::DateTime;
+use chrono::TimeZone;
+use chrono::Utc;
 use clap::{Parser, Subcommand};
 use mirror_log::{chunk, db, log, pipeline, view};
+use std::path::PathBuf;
 
 #[cfg(feature = "embedding")]
-use mirror_log::embedding::{EmbeddingService, EmbeddingError};
-
 #[derive(Parser)]
 #[command(name = "mirror-log")]
 #[command(about = "Append-only event log with SQLite", long_about = None)]
@@ -357,12 +357,15 @@ fn main() {
             let conn = db::init_db(&cli.db).expect("Failed to open database");
 
             // Initialize embedding service
-            // Note: This uses a placeholder tokenizer - real implementation would load a proper tokenizer
-            match EmbeddingService::init(&model, /* tokenizer placeholder */, 512) {
+            match mirror_log::embedding::EmbeddingService::init(
+                &model,
+                tokenizers::Tokenizer::default(),
+                512,
+            ) {
                 Ok(service) => {
                     // Query events by source
-                    let events = view::by_source(&conn, &source, None)
-                        .expect("Failed to query events");
+                    let events =
+                        view::by_source(&conn, &source, None).expect("Failed to query events");
 
                     if events.is_empty() {
                         println!("No events found for source: {}", source);
@@ -378,14 +381,20 @@ fn main() {
                         match service.generate_embedding(&event.content) {
                             Ok(embedding) => {
                                 if let Err(e) = service.store_embedding(&embedding, &event.id) {
-                                    eprintln!("Failed to store embedding for event {}: {}", event.id, e);
+                                    eprintln!(
+                                        "Failed to store embedding for event {}: {}",
+                                        event.id, e
+                                    );
                                     error_count += 1;
                                 } else {
                                     success_count += 1;
                                 }
                             }
                             Err(e) => {
-                                eprintln!("Failed to generate embedding for event {}: {}", event.id, e);
+                                eprintln!(
+                                    "Failed to generate embedding for event {}: {}",
+                                    event.id, e
+                                );
                                 error_count += 1;
                             }
                         }
@@ -400,17 +409,19 @@ fn main() {
                             Ok(s) => s,
                             Err(e) => {
                                 eprintln!("Failed to get embedding stats: {}", e);
-                                continue;
+                                std::process::exit(1);
                             }
                         };
                         println!("  Total embeddings: {}", stats.total_embeddings);
                         println!("  Total events with embeddings: {}", stats.total_events);
-                        println!("  Average vector length: {:.2}", stats.average_vector_length);
+                        println!(
+                            "  Average vector length: {:.2}",
+                            stats.average_vector_length
+                        );
                     }
                 }
                 Err(e) => {
                     eprintln!("Failed to initialize embedding service: {}", e);
-                    eprintln!("Make sure you have the 'embedding' feature enabled in Cargo.toml");
                     std::process::exit(1);
                 }
             }
@@ -421,7 +432,9 @@ fn main() {
             eprintln!("⚠️  Embed command requires the 'embedding' feature");
             eprintln!("Add 'embedding' to your Cargo.toml dependencies:");
             eprintln!("  [features]");
-            eprintln!("  embedding = [\"tokenizers\", \"ndarray\", \"approx\", \"serde\", \"thiserror\"]");
+            eprintln!(
+                "  embedding = [\"tokenizers\", \"ndarray\", \"approx\", \"serde\", \"thiserror\"]"
+            );
             std::process::exit(1);
         }
 
@@ -431,7 +444,11 @@ fn main() {
                 let conn = db::init_db(&cli.db).expect("Failed to open database");
 
                 // Initialize embedding service - this is a simplified version
-                match EmbeddingService::init("token-bucket", /* tokenizer placeholder */, 512) {
+                match mirror_log::embedding::EmbeddingService::init(
+                    "token-bucket",
+                    tokenizers::Tokenizer::default(),
+                    512,
+                ) {
                     Ok(service) => {
                         println!("Searching for similar events to: '{}'", term);
 
@@ -475,7 +492,7 @@ fn main() {
                                         }
                                     }
                                 }
-                            },
+                            }
                             Err(e) => {
                                 eprintln!("Failed to search similar events: {}", e);
                                 std::process::exit(1);

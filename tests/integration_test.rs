@@ -18,7 +18,7 @@ fn temp_db() -> PathBuf {
 }
 
 fn get_binary_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_BIN_EXE_mirror_log"))
+    PathBuf::from(std::env::var("CARGO_BIN_EXE_mirror_log").unwrap())
 }
 
 #[cfg(test)]
