@@ -8,6 +8,7 @@ target/
 **/*.rs.bk
 *.pdb
 
+
 # Cargo lock (optional - keep if this is a binary)
 # Cargo.lock
 
@@ -21,5 +22,4 @@ target/
 # OS
 .DS_Store
 Thumbs.db
-target/
 .aider*
