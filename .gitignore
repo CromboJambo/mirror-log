@@ -8,6 +8,8 @@ target/
 **/*.rs.bk
 *.pdb
 
+# rough notes
+dev_log/
 
 # Cargo lock (optional - keep if this is a binary)
 # Cargo.lock
