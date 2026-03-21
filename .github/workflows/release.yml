@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish, for example v0.1.7"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -14,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BIN_NAME: mirror-log
+      RELEASE_REF_NAME: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -61,7 +68,7 @@ jobs:
         run: |
           set -euo pipefail
           CARGO_VERSION="$(sed -n 's/^version = \"\(.*\)\"$/\1/p' Cargo.toml | head -n1)"
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          TAG_VERSION="${RELEASE_REF_NAME#v}"
 
           if [[ -z "$CARGO_VERSION" ]]; then
             echo "Failed to read package version from Cargo.toml" >&2
@@ -69,7 +76,7 @@ jobs:
           fi
 
           if [[ "$CARGO_VERSION" != "$TAG_VERSION" ]]; then
-            echo "Tag ${GITHUB_REF_NAME} does not match Cargo.toml version ${CARGO_VERSION}" >&2
+            echo "Tag ${RELEASE_REF_NAME} does not match Cargo.toml version ${CARGO_VERSION}" >&2
             exit 1
           fi
 
@@ -77,17 +84,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ARCHIVE_ROOT="dist/${BIN_NAME}-${GITHUB_REF_NAME}-linux-x86_64"
+          ARCHIVE_ROOT="dist/${BIN_NAME}-${RELEASE_REF_NAME}-linux-x86_64"
           mkdir -p "$ARCHIVE_ROOT"
           cp "target/release/${BIN_NAME}" "$ARCHIVE_ROOT/"
           cp LICENSE README.md "$ARCHIVE_ROOT/"
-          tar -C dist -czf "target/${BIN_NAME}-${GITHUB_REF_NAME}-linux-x86_64.tar.gz" \
-            "${BIN_NAME}-${GITHUB_REF_NAME}-linux-x86_64"
+          tar -C dist -czf "target/${BIN_NAME}-${RELEASE_REF_NAME}-linux-x86_64.tar.gz" \
+            "${BIN_NAME}-${RELEASE_REF_NAME}-linux-x86_64"
 
       - name: Publish to GitHub
         uses: softprops/action-gh-release@v1
         with:
-          files: target/${{ env.BIN_NAME }}-${{ github.ref_name }}-linux-x86_64.tar.gz
+          tag_name: ${{ env.RELEASE_REF_NAME }}
+          target_commitish: ${{ github.sha }}
+          files: target/${{ env.BIN_NAME }}-${{ env.RELEASE_REF_NAME }}-linux-x86_64.tar.gz
           generate_release_notes: true
 
       - name: Publish to crates.io
