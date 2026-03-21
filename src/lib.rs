@@ -3,6 +3,7 @@ pub mod db;
 pub mod decay;
 pub mod embedding;
 pub mod export;
+#[cfg(feature = "inference")]
 pub mod inference;
 pub mod iteration;
 pub mod log;

@@ -92,6 +92,7 @@ impl CliHistorySource {
             return Ok(Some(batch.len()));
         }
 
+        let imported_count = batch.len();
         let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
 
         for (hash, content, source) in batch {
@@ -106,7 +107,7 @@ impl CliHistorySource {
                     now,
                     source,
                     content,
-                    None,
+                    Option::<String>::None,
                     now,
                     hash
                 ],
@@ -115,7 +116,7 @@ impl CliHistorySource {
 
         tx.commit().map_err(|e| e.to_string())?;
 
-        Ok(Some(batch.len()))
+        Ok(Some(imported_count))
     }
 
     /// Import zsh history
@@ -164,6 +165,7 @@ impl CliHistorySource {
             return Ok(Some(batch.len()));
         }
 
+        let imported_count = batch.len();
         let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
 
         for (hash, content, source) in batch {
@@ -178,7 +180,7 @@ impl CliHistorySource {
                     now,
                     source,
                     content,
-                    None,
+                    Option::<String>::None,
                     now,
                     hash
                 ],
@@ -187,7 +189,7 @@ impl CliHistorySource {
 
         tx.commit().map_err(|e| e.to_string())?;
 
-        Ok(Some(batch.len()))
+        Ok(Some(imported_count))
     }
 
     /// Import nushell history (sqlite)
@@ -218,7 +220,7 @@ impl CliHistorySource {
             .map_err(|e| e.to_string())?;
 
         for row in rows {
-            let (value, created_at) = row?;
+            let (value, created_at) = row.map_err(|e| e.to_string())?;
             let trimmed = value.trim();
 
             if trimmed.is_empty() {
@@ -247,6 +249,7 @@ impl CliHistorySource {
             return Ok(Some(batch.len()));
         }
 
+        let imported_count = batch.len();
         let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
 
         for (hash, content, source) in batch {
@@ -261,7 +264,7 @@ impl CliHistorySource {
                     now,
                     source,
                     content,
-                    None,
+                    Option::<String>::None,
                     now,
                     hash
                 ],
@@ -270,7 +273,7 @@ impl CliHistorySource {
 
         tx.commit().map_err(|e| e.to_string())?;
 
-        Ok(Some(batch.len()))
+        Ok(Some(imported_count))
     }
 
     /// Get content by timestamp from history file

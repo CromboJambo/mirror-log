@@ -5,7 +5,6 @@ use clap::{Parser, Subcommand};
 use mirror_log::{chunk, db, log, pipeline, view};
 use std::path::PathBuf;
 
-#[cfg(feature = "embedding")]
 #[derive(Parser)]
 #[command(name = "mirror-log")]
 #[command(about = "Append-only event log with SQLite", long_about = None)]
@@ -114,11 +113,23 @@ enum Commands {
 }
 
 #[cfg(feature = "embedding")]
+use tokenizers::models::bpe::BPE;
+#[cfg(feature = "embedding")]
 use tokenizers::Tokenizer;
+
+#[cfg(feature = "embedding")]
+fn load_tokenizer(model: &str) -> Result<Tokenizer, String> {
+    let path = std::path::Path::new(model);
+    if path.exists() {
+        return Tokenizer::from_file(path).map_err(|e| e.to_string());
+    }
+
+    Ok(Tokenizer::new(BPE::default()))
+}
 
 fn main() {
     let cli = Cli::parse();
-    let db_path = cli.db;
+    let db_path = cli.db.clone();
     let conn = db::init_db(&db_path).expect("Failed to open database");
 
     match cli.command {
@@ -357,14 +368,19 @@ fn main() {
 
         #[cfg(feature = "embedding")]
         Commands::Embed { source, model } => {
-            let conn = db::init_db(&cli.db).expect("Failed to open database");
+            let conn = db::init_db(&db_path).expect("Failed to open database");
+            let tokenizer = match load_tokenizer(&model) {
+                Ok(tokenizer) => tokenizer,
+                Err(e) => {
+                    eprintln!("Failed to load tokenizer '{}': {}", model, e);
+                    std::process::exit(1);
+                }
+            };
 
-            // Initialize embedding service
-            #[cfg(feature = "embedding")]
-            {
-                let tokenizer = tokenizers::Tokenizer::from_pretty_model(model.as_str()).unwrap();
-                match mirror_log::embedding::init_from_path(&cli.db, &model, &tokenizer, 512) {
-                Ok(service) => {
+            match mirror_log::embedding::EmbeddingService::init_from_path(
+                &db_path, &model, tokenizer, 512,
+            ) {
+                Ok(mut service) => {
                     // Query events by source
                     let events =
                         view::by_source(&conn, &source, None).expect("Failed to query events");
@@ -443,14 +459,16 @@ fn main() {
         Commands::SearchSimilar { term, limit } => {
             #[cfg(feature = "embedding")]
             {
-                let conn = db::init_db(&cli.db).expect("Failed to open database");
+                let conn = db::init_db(&db_path).expect("Failed to open database");
+                let tokenizer = Tokenizer::new(BPE::default());
 
-                // Initialize embedding service - this is a simplified version
-                #[cfg(feature = "embedding")]
-                {
-                    let tokenizer = tokenizers::Tokenizer::from_pretty_model("token-bucket").unwrap();
-                    match mirror_log::embedding::init("token-bucket", &tokenizer, 512) {
-                    Ok(service) => {
+                match mirror_log::embedding::EmbeddingService::init_from_path(
+                    &db_path,
+                    "token-bucket",
+                    tokenizer,
+                    512,
+                ) {
+                    Ok(mut service) => {
                         println!("Searching for similar events to: '{}'", term);
 
                         let query_embedding = match service.generate_embedding(&term) {

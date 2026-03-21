@@ -18,7 +18,17 @@ fn temp_db() -> PathBuf {
 }
 
 fn get_binary_path() -> PathBuf {
-    PathBuf::from(std::env::var("CARGO_BIN_EXE_mirror_log").unwrap())
+    std::env::var("CARGO_BIN_EXE_mirror_log")
+        .or_else(|_| std::env::var("CARGO_BIN_EXE_mirror-log"))
+        .map(PathBuf::from)
+        .or_else(|_| {
+            let mut path = std::env::current_exe().map_err(|_| std::env::VarError::NotPresent)?;
+            path.pop();
+            path.pop();
+            path.push(format!("mirror-log{}", std::env::consts::EXE_SUFFIX));
+            Ok::<PathBuf, std::env::VarError>(path)
+        })
+        .expect("Cargo binary path environment variable not set")
 }
 
 #[cfg(test)]
@@ -411,9 +421,18 @@ mod cli_tests {
     }
 
     fn get_binary_path() -> PathBuf {
-        let exe = std::env::var("CARGO_BIN_EXE_mirror_log")
-            .expect("CARGO_BIN_EXE_mirror_log environment variable not set");
-        PathBuf::from(exe)
+        std::env::var("CARGO_BIN_EXE_mirror_log")
+            .or_else(|_| std::env::var("CARGO_BIN_EXE_mirror-log"))
+            .map(PathBuf::from)
+            .or_else(|_| {
+                let mut path =
+                    std::env::current_exe().map_err(|_| std::env::VarError::NotPresent)?;
+                path.pop();
+                path.pop();
+                path.push(format!("mirror-log{}", std::env::consts::EXE_SUFFIX));
+                Ok::<PathBuf, std::env::VarError>(path)
+            })
+            .expect("Cargo binary path environment variable not set")
     }
 
     #[test]
