@@ -67,7 +67,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          CARGO_VERSION="$(sed -n 's/^version = \"\(.*\)\"$/\1/p' Cargo.toml | head -n1)"
+          CARGO_VERSION="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n1)"
           TAG_VERSION="${RELEASE_REF_NAME#v}"
 
           if [[ -z "$CARGO_VERSION" ]]; then
