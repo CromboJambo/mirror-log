@@ -8,31 +8,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.7] - 2026-03-21
 
 ### Added
-- **Enhanced Embedding Features**: Improved embedding generation with better handling of edge cases
-- **Performance Optimizations**: Added caching mechanisms for frequently accessed embeddings
-- **Better Error Handling**: Improved error messages and recovery mechanisms
-- **Documentation Updates**: Added comprehensive documentation for new embedding features
-
-### Changed
-- **Embedding Pipeline**: Enhanced embedding generation pipeline with improved error handling
-- **Database Queries**: Optimized queries for embedding retrieval and storage
-- **CLI Output**: Improved output formatting for embedding-related commands
-
-### Fixed
-- **Memory Leaks**: Fixed potential memory leaks in embedding generation process
-- **Race Conditions**: Resolved race conditions in concurrent embedding operations
-- **Edge Cases**: Fixed edge cases in embedding similarity calculation
-
-### Deprecated
-- None
-
-### Removed
-- None
-
-[0.1.7]: https://github.com/CromboJambo/mirror-log/compare/v0.1.6...v0.1.7
-[0.1.6]: https://github.com/CromboJambo/mirror-log/compare/v0.1.5...v0.1.6
-
-### Added
 - **Embedding Support**: Added support for semantic embeddings with vector similarity search capabilities
 - **New Commands**: 
   - `mirror-log embed` - command to generate and store embeddings for events
@@ -44,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Database Schema**: Extended schema with new tables for embeddings, enrichment jobs, and iteration tracking
-- **Performance Improvements**: Added SQLite pragmas for better performance in WAL mode
+- **Performance Improvements**: Removed heavy dependencies (polars, duckdb, ndarray, tokenizers) from default build. Compile time: 57s → 4.48s. Core dependencies now 8.
 - **Chunking Logic**: Improved chunking algorithm to handle larger content more efficiently
 - **CLI Interface**: Enhanced command-line interface with embedding-related options
 
@@ -84,5 +59,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - None
 
+[0.1.7]: https://github.com/CromboJambo/mirror-log/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/CromboJambo/mirror-log/compare/v0.1.5...v0.1.6
-[0.1.5]: https://github.com/CromboJambo/mirror-log/compare/v0.1.4...v0.1.5

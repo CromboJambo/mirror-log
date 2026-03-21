@@ -278,8 +278,9 @@ impl CliHistorySource {
 
     /// Get content by timestamp from history file
     fn get_content_by_hash(_path: &PathBuf, _ts: i64) -> Result<String, String> {
-        // For simplicity, we just use the content as is
-        // In a full implementation, you'd need to parse the history file format
+        // TODO: Implement content retrieval by timestamp for bash/zsh history files
+        // These files don't have per-line timestamps, so this requires parsing
+        // For now, we skip content retrieval since we're using content_hash for dedup
         Ok(String::new())
     }
 

@@ -6,6 +6,7 @@ pub mod embedding;
 pub mod export;
 #[cfg(feature = "inference")]
 pub mod inference;
+#[cfg(feature = "iteration")]
 pub mod iteration;
 pub mod log;
 pub mod pipeline;
@@ -20,6 +21,7 @@ pub use log::{
 pub use view::{by_ingestion_time, dedup_stats, find_duplicates, Event};
 
 // Re-export iteration types (only the core types)
+#[cfg(feature = "iteration")]
 pub use iteration::types::*;
 
 // Re-export embedding types and functions
@@ -31,6 +33,7 @@ pub use embedding::{
 };
 
 // Re-export iteration types and functions
+#[cfg(feature = "iteration")]
 pub use iteration::{
     get_iteration_passes, get_iteration_status, insert_iteration_pass, update_iteration_status,
     CompletionReason, FeedbackQuality, IterationError, IterationFeedback, IterationInsight,
