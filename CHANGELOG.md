@@ -5,7 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.6] - 2026-02-20
+## [0.1.7] - 2026-02-20
+
+### Added
+- **Enhanced Embedding Features**: Improved embedding generation with better handling of edge cases
+- **Performance Optimizations**: Added caching mechanisms for frequently accessed embeddings
+- **Better Error Handling**: Improved error messages and recovery mechanisms
+- **Documentation Updates**: Added comprehensive documentation for new embedding features
+
+### Changed
+- **Embedding Pipeline**: Enhanced embedding generation pipeline with improved error handling
+- **Database Queries**: Optimized queries for embedding retrieval and storage
+- **CLI Output**: Improved output formatting for embedding-related commands
+
+### Fixed
+- **Memory Leaks**: Fixed potential memory leaks in embedding generation process
+- **Race Conditions**: Resolved race conditions in concurrent embedding operations
+- **Edge Cases**: Fixed edge cases in embedding similarity calculation
+
+### Deprecated
+- None
+
+### Removed
+- None
+
+[0.1.7]: https://github.com/CromboJambo/mirror-log/compare/v0.1.6...v0.1.7
+[0.1.6]: https://github.com/CromboJambo/mirror-log/compare/v0.1.5...v0.1.6
 
 ### Added
 - **Embedding Support**: Added support for semantic embeddings with vector similarity search capabilities
