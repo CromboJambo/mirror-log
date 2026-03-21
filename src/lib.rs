@@ -1,6 +1,7 @@
 pub mod chunk;
 pub mod db;
 pub mod decay;
+#[cfg(feature = "embedding")]
 pub mod embedding;
 pub mod export;
 #[cfg(feature = "inference")]

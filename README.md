@@ -4,7 +4,7 @@ An append-only event log for capturing thoughts, notes, and data you do not want
 
 `mirror-log` is local-first, SQLite-backed, and designed to be boring in the best way: easy to inspect, easy to script, and hard to accidentally lose context.
 
-Version 0.1.6 includes semantic embedding support and enhanced iteration tracking capabilities.
+The default build is intentionally lean: SQLite is the source of truth, direct SQL stays first-class, and optional embedding work lives behind a feature flag instead of in the core path.
 
 ## Quick Start
 
@@ -36,10 +36,10 @@ mirror-log info
 # Integrity verification (hash + relational checks)
 mirror-log verify
 
-# Generate embeddings for events (coming in next version)
+# Generate embeddings for events (optional feature)
 # mirror-log embed --source journal
 
-# Search similar events using embeddings (coming in next version)
+# Search similar events using embeddings (optional feature)
 # mirror-log search-similar "overhead allocation" --limit 5
 ```
 
@@ -52,6 +52,9 @@ cd mirror-log
 cargo build --release
 
 # Binary location: target/release/mirror-log
+
+# Optional embedding commands
+cargo build --release --features embedding
 
 # Or install locally
 cargo install --path .
@@ -69,7 +72,7 @@ cargo install --path .
 - **SQLite is source of truth**: Your data stays local and inspectable
 - **No hidden layers**: Direct SQL remains first-class
 - **Source-aware logging**: Every event tracks where it came from
-- **Semantic Embedding Support**: Events can be enriched with vector embeddings for similarity search
+- **Optional enrichment**: Embeddings stay outside the default build
 
 ## Canonical Pipeline
 
@@ -123,7 +126,7 @@ SELECT COUNT(*) AS total,
        COUNT(DISTINCT content_hash) AS unique_events
 FROM events;
 
-# View embeddings (coming in next version)
+# View embeddings (optional feature)
 # SELECT e.id, e.content, emb.embedding
 # FROM events e
 # JOIN event_embeddings emb ON e.id = emb.event_id

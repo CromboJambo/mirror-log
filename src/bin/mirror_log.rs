@@ -450,9 +450,7 @@ fn main() {
             eprintln!("⚠️  Embed command requires the 'embedding' feature");
             eprintln!("Add 'embedding' to your Cargo.toml dependencies:");
             eprintln!("  [features]");
-            eprintln!(
-                "  embedding = [\"tokenizers\", \"ndarray\", \"approx\", \"serde\", \"thiserror\"]"
-            );
+            eprintln!("  embedding = [\"tokenizers\", \"serde\", \"thiserror\", \"tracing\"]");
             std::process::exit(1);
         }
 
@@ -530,7 +528,7 @@ fn main() {
                 eprintln!("⚠️  Search similar command requires the 'embedding' feature");
                 eprintln!("Add 'embedding' to your Cargo.toml dependencies:");
                 eprintln!("  [features]");
-                eprintln!("  embedding = [\"tokenizers\", \"ndarray\", \"approx\", \"serde\", \"thiserror\"]");
+                eprintln!("  embedding = [\"tokenizers\", \"serde\", \"thiserror\", \"tracing\"]");
                 std::process::exit(1);
             }
         }
