@@ -1,6 +1,5 @@
 use rusqlite::{params, Connection, Result};
-use std::path::Path;
-use std::time::{Duration, UNIX_EPOCH};
+use std::time::UNIX_EPOCH;
 
 const DECAY_THRESHOLD_DAYS: i64 = 30;
 const ACCESS_COUNT_THRESHOLD: i64 = 10;
