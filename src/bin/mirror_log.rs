@@ -113,6 +113,9 @@ enum Commands {
     },
 }
 
+#[cfg(feature = "embedding")]
+use tokenizers::Tokenizer;
+
 fn main() {
     let cli = Cli::parse();
     let db_path = cli.db;
@@ -354,16 +357,13 @@ fn main() {
 
         #[cfg(feature = "embedding")]
         Commands::Embed { source, model } => {
-                   #[cfg(feature = "embedding")]
-                   Commands::Embed { source, model } => {
-                       let conn = db::init_db(&cli.db).expect("Failed to open database");
+            let conn = db::init_db(&cli.db).expect("Failed to open database");
 
-                       // Initialize embedding service
-                       match mirror_log::embedding::EmbeddingService::init_from_path(
-                           &cli.db,
-                           &model,
-                           512,
-                       ) {
+            // Initialize embedding service
+            #[cfg(feature = "embedding")]
+            {
+                let tokenizer = tokenizers::Tokenizer::from_pretty_model(model.as_str()).unwrap();
+                match mirror_log::embedding::init_from_path(&cli.db, &model, &tokenizer, 512) {
                 Ok(service) => {
                     // Query events by source
                     let events =
@@ -446,11 +446,10 @@ fn main() {
                 let conn = db::init_db(&cli.db).expect("Failed to open database");
 
                 // Initialize embedding service - this is a simplified version
-                match mirror_log::embedding::EmbeddingService::init(
-                    "token-bucket",
-                    tokenizers::Tokenizer::default(),
-                    512,
-                ) {
+                #[cfg(feature = "embedding")]
+                {
+                    let tokenizer = tokenizers::Tokenizer::from_pretty_model("token-bucket").unwrap();
+                    match mirror_log::embedding::init("token-bucket", &tokenizer, 512) {
                     Ok(service) => {
                         println!("Searching for similar events to: '{}'", term);
 

@@ -393,17 +393,13 @@ pub fn cosine_similarity(vec1: &[f32], vec2: &[f32]) -> Result<f32, EmbeddingErr
 }
 
 pub fn init_embedding_service(
+    path: impl AsRef<std::path::Path>,
     model_name: &str,
     tokenizer: Tokenizer,
     embedding_dim: usize,
-   pub fn init_embedding_service(
-       path: impl AsRef<std::path::Path>,
-       model_name: &str,
-       tokenizer: Tokenizer,
-       embedding_dim: usize,
-   ) -> Result<EmbeddingService, EmbeddingError> {
-       EmbeddingService::init_from_path(path, model_name, tokenizer, embedding_dim)
-   }
+) -> Result<EmbeddingService, EmbeddingError> {
+    EmbeddingService::init_from_path(path, model_name, tokenizer, embedding_dim)
+}
 
 pub fn generate_embedding(
     service: &mut EmbeddingService,

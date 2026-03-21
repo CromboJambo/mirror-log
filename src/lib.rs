@@ -1,10 +1,13 @@
 pub mod chunk;
 pub mod db;
+pub mod decay;
 pub mod embedding;
 pub mod export;
+pub mod inference;
 pub mod iteration;
 pub mod log;
 pub mod pipeline;
+pub mod sources;
 pub mod view;
 
 // Re-export commonly used types and functions
@@ -30,4 +33,18 @@ pub use iteration::{
     get_iteration_passes, get_iteration_status, insert_iteration_pass, update_iteration_status,
     CompletionReason, FeedbackQuality, IterationError, IterationFeedback, IterationInsight,
     IterationPass, IterationStats, IterationStatus, IterationThreshold, PassType,
+};
+
+// Re-export decay types and functions
+pub use decay::{
+    get_decay_score, get_decay_stats, get_flagged_events, get_shadow_events, init_decay_tables,
+    is_flagged, move_to_shadow, pin_event, restore_from_shadow, track_access, unpin_event,
+    DecayStats, ShadowEvent,
+};
+
+// Re-export inference types and functions
+#[cfg(feature = "inference")]
+pub use inference::{
+    Event as InferenceEvent, HttpBackend, HttpConfig, InferenceBackend, InferenceConfig,
+    InferenceError,
 };
