@@ -141,6 +141,25 @@ cargo clippy --all-targets --all-features -- -D warnings
 cargo test
 ```
 
+### Dependency Audit
+
+```bash
+# Compare declared, active direct, and full transitive dependency surfaces
+scripts/dep-audit.sh
+
+# Audit an optional feature path
+scripts/dep-audit.sh --features embedding
+
+# Emit a compact line for mirror-log indexing
+MIRROR_LOG_INDEX=1 scripts/dep-audit.sh
+
+# Only append a new audit event when the surface changes
+scripts/log-dep-audit.sh
+
+# Log both the default surface and optional feature paths
+scripts/log-dep-audit-matrix.sh
+```
+
 ## License
 
 AGPL-3.0-or-later. See `LICENSE`.

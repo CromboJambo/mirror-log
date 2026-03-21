@@ -1,0 +1,93 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo index
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-git-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo build
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: ${{ runner.os }}-build-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build release
+        run: cargo build --release --all-features
+
+      - name: Run tests
+        run: cargo test --all-features
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-features -- -D warnings
+
+      - name: Create release archive
+        run: |
+          tar -czvf target/mirror-log-${{ github.ref_name }}.tar.gz \
+            target/release/mirror-log \
+            target/release/mirror-log-embed \
+            target/release/mirror-log-infer \
+            target/release/mirror-log-search-similar \
+            LICENSE README.md
+
+      - name: Publish to GitHub
+        uses: softprops/action-gh-release@v1
+        with:
+          files: target/mirror-log-${{ github.ref_name }}.tar.gz
+          generate_release_notes: true
+
+      - name: Publish to crates.io
+        run: cargo publish --token ${{ secrets.CARGO_TOKEN }}
+
+      - name: Update CHANGELOG
+        run: |
+          VERSION=${{ github.ref_name }}
+          echo "## [$VERSION] - $(date +%Y-%m-%d)" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "### Added" >> CHANGELOG.md
+          echo "- Release $VERSION" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "### Changed" >> CHANGELOG.md
+          echo "- Updated to version $VERSION" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "### Fixed" >> CHANGELOG.md
+          echo "- Fixed release process" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "### Deprecated" >> CHANGELOG.md
+          echo "- None" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "### Removed" >> CHANGELOG.md
+          echo "- None" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "[${{ github.ref_name }}]: https://github.com/CromboJambo/mirror-log/compare/$(git describe --tags --abbrev=0 ^v0.1.6)...${{ github.ref_name }}" >> CHANGELOG.md
+</arg_value>
