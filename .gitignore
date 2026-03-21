@@ -6,6 +6,7 @@
 # Rust build artifacts
 target/
 **/*.rs.bk
+**/*.backup
 *.pdb
 
 # rough notes
