@@ -468,7 +468,6 @@ fn main() {
                 ) {
                     Ok(mut service) => {
                         println!("Searching for similar events to: '{}'", term);
-
                         let query_embedding = match service.generate_embedding(&term) {
                             Ok(embedding) => embedding,
                             Err(e) => {
@@ -477,42 +476,43 @@ fn main() {
                             }
                         };
 
-                        match service.search_similar(&query_embedding.vector, limit) {
-                            Ok(similarities) => {
-                                if similarities.is_empty() {
-                                    println!("No similar events found");
-                                    return;
+                        let similarities =
+                            match service.search_similar(&query_embedding.vector, limit) {
+                                Ok(similarities) => similarities,
+                                Err(e) => {
+                                    eprintln!("Failed to search similar events: {}", e);
+                                    std::process::exit(1);
                                 }
+                            };
 
-                                println!("Found {} similar events:\n", similarities.len());
+                        if similarities.is_empty() {
+                            println!("No similar events found");
+                            return;
+                        }
 
-                                for similarity in similarities {
-                                    match view::get_by_id(&conn, &similarity.event_id) {
-                                        Ok(event) => {
-                                            println!("[{}] {}", event.format_time(), event.source);
-                                            println!("ID: {}", event.id);
-                                            println!("Similarity Score: {:.4}", similarity.score);
+                        println!("Found {} similar events:\n", similarities.len());
 
-                                            if let Some(max_chars) = Some(200) {
-                                                println!("{}", event.preview_content(max_chars));
-                                            } else {
-                                                println!("{}", event.content);
-                                            }
+                        for similarity in similarities {
+                            match view::get_by_id(&conn, &similarity.event_id) {
+                                Ok(event) => {
+                                    println!("[{}] {}", event.format_time(), event.source);
+                                    println!("ID: {}", event.id);
+                                    println!("Similarity Score: {:.4}", similarity.score);
 
-                                            if let Some(meta) = event.meta {
-                                                println!("Meta: {}", meta);
-                                            }
-                                            println!();
-                                        }
-                                        Err(_) => {
-                                            println!("Event ID {} not found", similarity.event_id);
-                                        }
+                                    if let Some(max_chars) = Some(200) {
+                                        println!("{}", event.preview_content(max_chars));
+                                    } else {
+                                        println!("{}", event.content);
                                     }
+
+                                    if let Some(meta) = event.meta {
+                                        println!("Meta: {}", meta);
+                                    }
+                                    println!();
                                 }
-                            }
-                            Err(e) => {
-                                eprintln!("Failed to search similar events: {}", e);
-                                std::process::exit(1);
+                                Err(_) => {
+                                    println!("Event ID {} not found", similarity.event_id);
+                                }
                             }
                         }
                     }
