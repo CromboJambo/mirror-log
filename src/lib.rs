@@ -1,3 +1,4 @@
+pub mod attention;
 pub mod chunk;
 pub mod db;
 pub mod decay;
@@ -19,6 +20,13 @@ pub use log::{
     IntegrityReport,
 };
 pub use view::{by_ingestion_time, dedup_stats, find_duplicates, Event};
+
+// Re-export attention types and functions
+pub use attention::{
+    calculate_attention_score, get_active_items, get_flagged_items, init_attention_tables,
+    init_with_defaults, remove_from_attention, update_item, AttentionItem, AttentionLayer,
+    AttentionStats,
+};
 
 // Re-export iteration types (only the core types)
 #[cfg(feature = "iteration")]

@@ -21,6 +21,17 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Show your attention layer (recently accessed events)
+    Attention {
+        /// Show flagged items (due for decay)
+        #[arg(short, long)]
+        flagged: bool,
+
+        /// Show statistics
+        #[arg(short, long)]
+        stats: bool,
+    },
+
     /// Add an event to the log
     Add {
         /// The content to log
@@ -109,6 +120,12 @@ enum Commands {
 
         #[arg(long, default_value_t = 10)]
         limit: usize,
+    },
+
+    /// Add an event to the attention layer
+    AddToAttention {
+        /// Event ID to add to attention
+        event_id: String,
     },
 }
 
