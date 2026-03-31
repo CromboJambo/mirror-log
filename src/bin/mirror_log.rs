@@ -454,83 +454,76 @@ fn main() {
             std::process::exit(1);
         }
 
+        #[cfg(feature = "embedding")]
         Commands::SearchSimilar { term, limit } => {
-            #[cfg(feature = "embedding")]
-            {
-                let conn = db::init_db(&db_path).expect("Failed to open database");
-                let tokenizer = Tokenizer::new(BPE::default());
+            let conn = db::init_db(&db_path).expect("Failed to open database");
+            let tokenizer = Tokenizer::new(BPE::default());
 
-                match mirror_log::embedding::EmbeddingService::init_from_path(
-                    &db_path,
-                    "token-bucket",
-                    tokenizer,
-                    512,
-                ) {
-                    Ok(mut service) => {
-                        println!("Searching for similar events to: '{}'", term);
-                        let query_embedding = match service.generate_embedding(&term) {
-                            Ok(embedding) => embedding,
-                            Err(e) => {
-                                eprintln!("Failed to generate query embedding: {}", e);
-                                std::process::exit(1);
-                            }
-                        };
-
-                        let similarities =
-                            match service.search_similar(&query_embedding.vector, limit) {
-                                Ok(similarities) => similarities,
-                                Err(e) => {
-                                    eprintln!("Failed to search similar events: {}", e);
-                                    std::process::exit(1);
-                                }
-                            };
-
-                        if similarities.is_empty() {
-                            println!("No similar events found");
-                            return;
+            match mirror_log::embedding::EmbeddingService::init_from_path(
+                &db_path,
+                "token-bucket",
+                tokenizer,
+                512,
+            ) {
+                Ok(mut service) => {
+                    println!("Searching for similar events to: '{}'", term);
+                    let query_embedding = match service.generate_embedding(&term) {
+                        Ok(embedding) => embedding,
+                        Err(e) => {
+                            eprintln!("Failed to generate query embedding: {}", e);
+                            std::process::exit(1);
                         }
+                    };
 
-                        println!("Found {} similar events:\n", similarities.len());
-
-                        for similarity in similarities {
-                            match view::get_by_id(&conn, &similarity.event_id) {
-                                Ok(event) => {
-                                    println!("[{}] {}", event.format_time(), event.source);
-                                    println!("ID: {}", event.id);
-                                    println!("Similarity Score: {:.4}", similarity.score);
-
-                                    if let Some(max_chars) = Some(200) {
-                                        println!("{}", event.preview_content(max_chars));
-                                    } else {
-                                        println!("{}", event.content);
-                                    }
-
-                                    if let Some(meta) = event.meta {
-                                        println!("Meta: {}", meta);
-                                    }
-                                    println!();
-                                }
-                                Err(_) => {
-                                    println!("Event ID {} not found", similarity.event_id);
-                                }
-                            }
+                    let similarities = match service.search_similar(&query_embedding.vector, limit)
+                    {
+                        Ok(similarities) => similarities,
+                        Err(e) => {
+                            eprintln!("Failed to search similar events: {}", e);
+                            std::process::exit(1);
                         }
+                    };
+
+                    if similarities.is_empty() {
+                        println!("No similar events found");
+                        return;
                     }
-                    Err(e) => {
-                        eprintln!("Failed to initialize embedding service: {}", e);
-                        std::process::exit(1);
+
+                    println!("Found {} similar events:\n", similarities.len());
+
+                    for similarity in similarities {
+                        match view::get_by_id(&conn, &similarity.event_id) {
+                            Ok(event) => {
+                                println!("[{}] {}", event.format_time(), event.source);
+                                println!("ID: {}", event.id);
+                                println!("Similarity Score: {:.4}", similarity.score);
+                                println!("{}", event.preview_content(200));
+
+                                if let Some(meta) = event.meta {
+                                    println!("Meta: {}", meta);
+                                }
+                                println!();
+                            }
+                            Err(_) => {
+                                println!("Event ID {} not found", similarity.event_id);
+                            }
+                        }
                     }
                 }
+                Err(e) => {
+                    eprintln!("Failed to initialize embedding service: {}", e);
+                    std::process::exit(1);
+                }
             }
+        }
 
-            #[cfg(not(feature = "embedding"))]
-            {
-                eprintln!("⚠️  Search similar command requires the 'embedding' feature");
-                eprintln!("Add 'embedding' to your Cargo.toml dependencies:");
-                eprintln!("  [features]");
-                eprintln!("  embedding = [\"tokenizers\", \"serde\", \"thiserror\", \"tracing\"]");
-                std::process::exit(1);
-            }
+        #[cfg(not(feature = "embedding"))]
+        Commands::SearchSimilar { .. } => {
+            eprintln!("⚠️  Search similar command requires the 'embedding' feature");
+            eprintln!("Add 'embedding' to your Cargo.toml dependencies:");
+            eprintln!("  [features]");
+            eprintln!("  embedding = [\"tokenizers\", \"serde\", \"thiserror\", \"tracing\"]");
+            std::process::exit(1);
         }
     }
 }

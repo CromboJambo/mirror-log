@@ -1,6 +1,10 @@
 use arboard::Clipboard;
+use rusqlite::params;
+use serde_json::json;
+use std::error::Error;
+use std::rc::Rc;
+use std::time::Duration;
 use std::time::UNIX_EPOCH;
-use std::{env, os::unix::process::ExitStatusExt, process::Command, sync::Arc};
 use uuid::Uuid;
 
 #[cfg(feature = "inference")]
@@ -8,15 +12,15 @@ use crate::inference::InferenceBackend;
 
 /// Clipboard watcher that monitors clipboard changes and logs them to the database
 pub struct ClipboardWatcher {
-    conn: Arc<rusqlite::Connection>,
+    conn: Rc<rusqlite::Connection>,
     last_clip: Option<String>,
     #[cfg(feature = "inference")]
-    inference: Option<Arc<dyn InferenceBackend>>,
+    inference: Option<std::sync::Arc<dyn InferenceBackend>>,
 }
 
 impl ClipboardWatcher {
     /// Create a new clipboard watcher
-    pub fn new(conn: Arc<rusqlite::Connection>) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(conn: Rc<rusqlite::Connection>) -> Result<Self, Box<dyn Error>> {
         Ok(Self {
             conn,
             last_clip: None,
@@ -27,13 +31,13 @@ impl ClipboardWatcher {
 
     /// Set an inference backend for content analysis
     #[cfg(feature = "inference")]
-    pub fn with_inference(mut self, inference: Arc<dyn InferenceBackend>) -> Self {
+    pub fn with_inference(mut self, inference: std::sync::Arc<dyn InferenceBackend>) -> Self {
         self.inference = Some(inference);
         self
     }
 
     /// Check for clipboard changes and log new content
-    pub fn check_and_log(&mut self) -> Result<bool, Box<dyn std::error::Error>> {
+    pub fn check_and_log(&mut self) -> Result<bool, Box<dyn Error>> {
         let mut clipboard = Clipboard::new()?;
         let current_clip = clipboard.get_text()?;
 
@@ -43,7 +47,7 @@ impl ClipboardWatcher {
         }
 
         // Check if content changed
-        if current_clip == self.last_clip {
+        if self.last_clip.as_deref() == Some(current_clip.as_str()) {
             return Ok(false);
         }
 
@@ -56,7 +60,7 @@ impl ClipboardWatcher {
     }
 
     /// Log content to the database with optional inference
-    fn log_content(&self, content: &str) -> Result<(), Box<dyn std::error::Error>> {
+    fn log_content(&self, content: &str) -> Result<(), Box<dyn Error>> {
         let id = Uuid::new_v4().to_string();
         let timestamp = (UNIX_EPOCH.elapsed()?.as_secs() as i64).saturating_sub(1); // Adjust for timezone
 
@@ -70,7 +74,7 @@ impl ClipboardWatcher {
 
         let exists = self.conn.query_row(
             "SELECT EXISTS(SELECT 1 FROM events WHERE content_hash = ?1)",
-            [content_hash],
+            [&content_hash],
             |row| row.get::<_, bool>(0),
         )?;
 
@@ -79,35 +83,34 @@ impl ClipboardWatcher {
         }
 
         // Prepare metadata
-        let meta = if let Some(ref backend) = self.inference {
-            // Optional: Get tags from inference backend
+        let meta = {
             #[cfg(feature = "inference")]
-            let tags = backend.tag(content);
-            #[cfg(not(feature = "inference"))]
-            let tags = Vec::new();
+            if let Some(ref backend) = self.inference {
+                // Optional: Get tags from inference backend
+                let tags = backend.tag(content).unwrap_or_default();
 
-            // Prepare JSON metadata
-            let mut meta_json = serde_json::json!({
-                "source": "clipboard",
-                "inference": {
-                    "tags": tags,
+                // Prepare JSON metadata
+                let mut meta_json = json!({
+                    "source": "clipboard",
+                    "inference": {
+                        "tags": tags,
+                    }
+                });
+
+                // Optional: Get embedding
+                if let Ok(embedding) = backend.embed(content) {
+                    meta_json["inference"]["embedding"] = json!(embedding);
                 }
-            });
 
-            // Optional: Get embedding
-            #[cfg(feature = "inference")]
-            if let Ok(embedding) = backend.embed(content) {
-                meta_json["inference"]["embedding"] = serde_json::json!(embedding);
+                Some(serde_json::to_string(&meta_json)?)
+            } else {
+                Some(json!({ "source": "clipboard" }).to_string())
             }
 
-            Some(serde_json::to_string(&meta_json)?)
-        } else {
-            Some(
-                serde_json::json!({
-                    "source": "clipboard",
-                })
-                .to_string(),
-            )
+            #[cfg(not(feature = "inference"))]
+            {
+                Some(json!({ "source": "clipboard" }).to_string())
+            }
         };
 
         // Insert the event
@@ -129,15 +132,12 @@ impl ClipboardWatcher {
     }
 
     /// Run the clipboard watcher in a loop
-    pub fn run_loop(&mut self, interval_secs: u64) -> Result<(), Box<dyn std::error::Error>> {
-        let mut ticker = tokio::time::interval(tokio::time::Duration::from_secs(interval_secs));
-        ticker.tick().await;
-
+    pub fn run_loop(&mut self, interval_secs: u64) -> Result<(), Box<dyn Error>> {
         loop {
-            ticker.tick().await;
             if let Err(e) = self.check_and_log() {
                 eprintln!("Error checking clipboard: {}", e);
             }
+            std::thread::sleep(Duration::from_secs(interval_secs));
         }
     }
 }
@@ -148,18 +148,30 @@ pub fn start_background_watcher(
     interval_secs: u64,
 ) -> Result<tokio::task::JoinHandle<()>, Box<dyn std::error::Error>> {
     let db_path = db_path.to_string();
-    let interval_secs = interval_secs;
 
-    let handle = tokio::task::spawn(async move {
+    let handle = tokio::task::spawn_blocking(move || {
         use crate::db::init_db;
         use crate::sources::clipboard::ClipboardWatcher;
-        use std::sync::Arc;
 
-        let conn = Arc::new(init_db(&db_path)?);
-        let mut watcher = ClipboardWatcher::new(conn)?;
+        let conn = match init_db(&db_path) {
+            Ok(conn) => Rc::new(conn),
+            Err(err) => {
+                eprintln!("Failed to open database for clipboard watcher: {}", err);
+                return;
+            }
+        };
+        let mut watcher = match ClipboardWatcher::new(conn) {
+            Ok(watcher) => watcher,
+            Err(err) => {
+                eprintln!("Failed to initialize clipboard watcher: {}", err);
+                return;
+            }
+        };
 
         // Run the watcher
-        watcher.run_loop(interval_secs).await;
+        if let Err(err) = watcher.run_loop(interval_secs) {
+            eprintln!("Clipboard watcher stopped: {}", err);
+        }
     });
 
     Ok(handle)

@@ -1,6 +1,8 @@
 //! HTTP backend for inference using LM Studio OpenAI-compatible API
 
+use super::backend_trait::Event;
 use serde::{Deserialize, Serialize};
+use sha2::Digest;
 use std::time::Duration;
 use thiserror::Error;
 
@@ -156,11 +158,11 @@ impl HttpBackend {
         let inference: InferenceResponse = response.json().await?;
 
         let tags_str = inference.choices[0].message.content.clone();
-        tags_str
+        Ok(tags_str
             .split(',')
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty())
-            .collect()
+            .collect())
     }
 
     /// Generate embedding for content
@@ -187,7 +189,7 @@ impl HttpBackend {
             )));
         }
 
-        let inference: InferenceResponse = response.json().await?;
+        let _inference: InferenceResponse = response.json().await?;
 
         // Extract a simplified embedding from the response content
         // In a real implementation, you'd use a proper embedding model
@@ -213,11 +215,7 @@ impl HttpBackend {
         }
 
         // Collect content from events
-        let content_list: Vec<String> = events
-            .iter()
-            .filter_map(|e| e.content.as_ref())
-            .map(|s| s.clone())
-            .collect();
+        let content_list: Vec<String> = events.iter().map(|event| event.content.clone()).collect();
 
         // Use inference to suggest pins
         let tag_request = InferenceRequest {
@@ -246,19 +244,15 @@ impl HttpBackend {
         }
 
         let inference: InferenceResponse = response.json().await?;
-
-        Ok(inference.choices[0].message.content.clone())
+        Ok(inference.choices[0]
+            .message
+            .content
+            .lines()
+            .flat_map(|line| line.split(','))
+            .map(|id| id.trim().to_string())
+            .filter(|id| !id.is_empty())
+            .collect())
     }
-}
-
-/// Event type for inference operations
-#[derive(Debug, Clone)]
-pub struct Event {
-    pub id: String,
-    pub content: String,
-    pub source: String,
-    pub timestamp: i64,
-    pub meta: Option<String>,
 }
 
 #[cfg(test)]

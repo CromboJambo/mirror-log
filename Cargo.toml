@@ -22,6 +22,7 @@ rand = "0.8"
 # Required for embedding support
 tokenizers = { version = "0.20", optional = true }
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 thiserror = { version = "1.0" }
 tracing = { version = "0.1", optional = true }
 
@@ -35,7 +36,7 @@ default = []
 embedding = ["tokenizers", "tracing"]
 inference = ["tokio", "reqwest", "tracing"]
 iteration = []
-clipboard = ["arboard"]
+clipboard = ["arboard", "tokio"]
 
 [lib]
 name = "mirror_log"

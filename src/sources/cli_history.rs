@@ -50,7 +50,7 @@ impl CliHistorySource {
 
         let mut dedup: HashMap<String, i64> = HashMap::new();
 
-        for line in reader.lines().filter_map(|l| l.ok()) {
+        for line in reader.lines().map_while(Result::ok) {
             let trimmed = line.trim();
             if trimmed.is_empty() {
                 continue;
@@ -132,7 +132,7 @@ impl CliHistorySource {
 
         let mut dedup: HashMap<String, i64> = HashMap::new();
 
-        for line in reader.lines().filter_map(|l| l.ok()) {
+        for line in reader.lines().map_while(Result::ok) {
             let trimmed = line.trim();
             if trimmed.is_empty() {
                 continue;

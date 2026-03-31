@@ -1,3 +1,9 @@
+[![CI](https://github.com/CromboJambo/mirror-log/actions/workflows/ci.yml/badge.svg)](https://github.com/CromboJambo/mirror-log/actions/workflows/ci.yml)
+[![Release](https://github.com/CromboJambo/mirror-log/actions/workflows/release.yml/badge.svg)](https://github.com/CromboJambo/mirror-log/actions/workflows/release.yml)
+[![Crates.io](https://img.shields.io/crates/v/mirror-log.svg)](https://crates.io/crates/mirror-log)
+[![Docs.rs](https://docs.rs/mirror-log/badge.svg)](https://docs.rs/mirror-log)
+[![License](https://img.shields.io/crates/l/mirror-log.svg)](https://github.com/CromboJambo/mirror-log/blob/main/LICENSE)
+
 ```
 ░  ░░░░  ░░        ░░       ░░░       ░░░░      ░░░       ░░░  ░░░░░░░░░      ░░░░      ░░
 ▒   ▒▒   ▒▒▒▒▒  ▒▒▒▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒▒▒▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒▒▒▒
