@@ -6,11 +6,11 @@
 //! - Implements decay, promotion, and reference-based retention
 //! - Supports the three-reference-point principle and five-sense triangulation
 
-use crate::db::{Connection, Result};
-use crate::decay::{get_decay_score, is_flagged, track_access};
+use crate::decay::{get_decay_score, track_access};
+use rusqlite::{Connection, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::time::{Duration, UNIX_EPOCH};
+
+use std::time::UNIX_EPOCH;
 
 /// Maximum number of active attention items
 const MAX_ACTIVE_ITEMS: i32 = 15;
@@ -309,8 +309,9 @@ impl AttentionItem {
         if self.last_accessed == 0 {
             "Never".to_string()
         } else {
-            let duration = UNIX_EPOCH.elapsed().unwrap_or_default() - self.last_accessed;
-            format_duration(duration)
+            let last_accessed = UNIX_EPOCH.elapsed().unwrap_or_default()
+                - std::time::Duration::from_secs(self.last_accessed as u64);
+            format_duration(last_accessed)
         }
     }
 
@@ -319,8 +320,9 @@ impl AttentionItem {
         if self.timestamp == 0 {
             "Unknown".to_string()
         } else {
-            let duration = UNIX_EPOCH.elapsed().unwrap_or_default() - self.timestamp;
-            format_duration(duration)
+            let timestamp = UNIX_EPOCH.elapsed().unwrap_or_default()
+                - std::time::Duration::from_secs(self.timestamp as u64);
+            format_duration(timestamp)
         }
     }
 }

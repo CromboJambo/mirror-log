@@ -340,17 +340,7 @@ fn main() {
                     println!("Meta: {}", meta);
                 }
             }
-            Err(_) => {
-                eprintln!("Event not found: {}", id);
-                std::process::exit(1);
-            }
-        },
 
-        Commands::Info => {
-            let (count, oldest, newest) = db::db_info(&conn).expect("Failed to get database info");
-
-            println!("Database: {}", db_path.display());
-            println!("Total events: {}", count);
 
             if count > 0 {
                 let oldest_dt: DateTime<Utc> = Utc.timestamp_opt(oldest, 0).unwrap();
@@ -541,6 +531,64 @@ fn main() {
             eprintln!("  [features]");
             eprintln!("  embedding = [\"tokenizers\", \"serde\", \"thiserror\", \"tracing\"]");
             std::process::exit(1);
+        }
+
+        Commands::Attention { flagged, stats } => {
+            if stats {
+                let attention_stats = mirror_log::AttentionLayer::default()
+                    .get_stats(&conn)
+                    .expect("Failed to get attention stats");
+                println!("Attention Statistics:");
+                println!("  Total events: {}", attention_stats.total_events);
+                println!("  Active events: {}", attention_stats.active_events);
+                println!("  Pinned events: {}", attention_stats.pinned_events);
+                println!("  Flagged events: {}", attention_stats.flagged_events);
+                println!("  Active percentage: {:.2}%", attention_stats.active_percentage());
+            } else if flagged {
+                let flagged_items = mirror_log::AttentionLayer::default()
+                    .get_flagged_items(&conn)
+                    .expect("Failed to get flagged items");
+                if flagged_items.is_empty() {
+                    println!("No flagged events");
+                } else {
+                    println!("Flagged events (due for decay):");
+                    for item in flagged_items {
+                        println!("\n[{}] {}", item.last_accessed_str(), item.source);
+                        println!("ID: {}", item.id);
+                        println!("Content: {}", item.content);
+                        println!("Access count: {}", item.access_count);
+                    }
+                }
+            } else {
+                let active_items = mirror_log::AttentionLayer::default()
+                    .get_active_items(&conn)
+                    .expect("Failed to get active items");
+                if active_items.is_empty() {
+                    println!("No active attention items");
+                } else {
+                    println!("Active attention items:");
+                    for item in active_items {
+                        println!("\n[{}] {}", item.last_accessed_str(), item.source);
+                        println!("ID: {}", item.id);
+                        println!("Content: {}", item.content);
+                        println!("Access count: {}", item.access_count);
+                        if let Some(meta) = &item.meta {
+                            println!("Meta: {}", meta);
+                        }
+                    }
+                }
+            }
+        }
+
+        Commands::AddToAttention { event_id } => {
+            match mirror_log::AttentionLayer::default()
+                .add_to_attention(&conn, &event_id) {
+                Ok(_) => println!("Added event to attention: {}", event_id),
+                Err(e) => {
+                    eprintln!("Failed to add event to attention: {}", e);
+                    std::process::exit(1);
+                }
+            }
         }
     }
 }
