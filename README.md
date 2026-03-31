@@ -12,6 +12,7 @@
 ░  ░░░░  ░░        ░░       ░░░       ░░░░      ░░░       ░░░  ░░░░░░░░░      ░░░░      ░░
 ```                                                                                          
 An append-only event log for capturing thoughts, notes, and data you do not want to lose.
+
 [![CI](https://github.com/CromboJambo/mirror-log/actions/workflows/ci.yml/badge.svg)](https://github.com/CromboJambo/mirror-log/actions/workflows/ci.yml)
 [![Release](https://github.com/CromboJambo/mirror-log/actions/workflows/release.yml/badge.svg)](https://github.com/CromboJambo/mirror-log/actions/workflows/release.yml)
 [![Crates.io](https://img.shields.io/crates/v/mirror-log.svg)](https://crates.io/crates/mirror-log)
