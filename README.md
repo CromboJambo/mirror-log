@@ -1,9 +1,3 @@
-[![CI](https://github.com/CromboJambo/mirror-log/actions/workflows/ci.yml/badge.svg)](https://github.com/CromboJambo/mirror-log/actions/workflows/ci.yml)
-[![Release](https://github.com/CromboJambo/mirror-log/actions/workflows/release.yml/badge.svg)](https://github.com/CromboJambo/mirror-log/actions/workflows/release.yml)
-[![Crates.io](https://img.shields.io/crates/v/mirror-log.svg)](https://crates.io/crates/mirror-log)
-[![Docs.rs](https://docs.rs/mirror-log/badge.svg)](https://docs.rs/mirror-log)
-[![License](https://img.shields.io/crates/l/mirror-log.svg)](https://github.com/CromboJambo/mirror-log/blob/main/LICENSE)
-
 ```
 ░  ░░░░  ░░        ░░       ░░░       ░░░░      ░░░       ░░░  ░░░░░░░░░      ░░░░      ░░
 ▒   ▒▒   ▒▒▒▒▒  ▒▒▒▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒▒▒▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒▒▒▒
@@ -17,8 +11,14 @@
 ▒   ▒▒   ▒▒▒▒▒  ▒▒▒▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒▒▒▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒▒▒▒
 ░  ░░░░  ░░        ░░       ░░░       ░░░░      ░░░       ░░░  ░░░░░░░░░      ░░░░      ░░
 ```                                                                                          
-
 An append-only event log for capturing thoughts, notes, and data you do not want to lose.
+[![CI](https://github.com/CromboJambo/mirror-log/actions/workflows/ci.yml/badge.svg)](https://github.com/CromboJambo/mirror-log/actions/workflows/ci.yml)
+[![Release](https://github.com/CromboJambo/mirror-log/actions/workflows/release.yml/badge.svg)](https://github.com/CromboJambo/mirror-log/actions/workflows/release.yml)
+[![Crates.io](https://img.shields.io/crates/v/mirror-log.svg)](https://crates.io/crates/mirror-log)
+[![Docs.rs](https://docs.rs/mirror-log/badge.svg)](https://docs.rs/mirror-log)
+[![License](https://img.shields.io/crates/l/mirror-log.svg)](https://github.com/CromboJambo/mirror-log/blob/main/LICENSE)
+
+
 
 `mirror-log` is local-first, SQLite-backed, and designed to be boring in the best way: easy to inspect, easy to script, and hard to accidentally lose context.
 
