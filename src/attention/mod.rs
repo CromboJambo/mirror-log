@@ -29,6 +29,7 @@ pub struct AttentionLayer {
     /// Decay threshold for removing items
     decay_threshold: i64,
     /// Minimum reference points required
+    #[allow(dead_code)]
     min_reference_points: i32,
 }
 
