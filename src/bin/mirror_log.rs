@@ -104,7 +104,8 @@ enum Commands {
     /// Verify database integrity invariants
     Verify,
 
-    /// Generate embeddings for events in a source
+    /// Generate embeddings for events in a source (optional feature)
+    #[cfg(feature = "embedding")]
     Embed {
         #[arg(short, long, default_value = "cli")]
         source: String,
@@ -113,7 +114,8 @@ enum Commands {
         model: String,
     },
 
-    /// Search similar events using embeddings
+    /// Search similar events using embeddings (optional feature)
+    #[cfg(feature = "embedding")]
     SearchSimilar {
         /// Search term (used to generate query vector)
         term: String,
@@ -340,19 +342,32 @@ fn main() {
                     println!("Meta: {}", meta);
                 }
             }
+            Err(e) => {
+                eprintln!("Event not found: {}", e);
+                std::process::exit(1);
+            }
+        },
 
+        Commands::Info => {
+            let (count, oldest, newest) =
+                db::db_info(&conn).expect("Failed to get database info");
+
+            println!("Database Info:");
+            println!("  Path: {}", db_path.display());
+            println!("  Total events: {}", count);
 
             if count > 0 {
                 let oldest_dt: DateTime<Utc> = Utc.timestamp_opt(oldest, 0).unwrap();
                 let newest_dt: DateTime<Utc> = Utc.timestamp_opt(newest, 0).unwrap();
 
-                println!("Oldest: {}", oldest_dt.format("%Y-%m-%d %H:%M:%S UTC"));
-                println!("Newest: {}", newest_dt.format("%Y-%m-%d %H:%M:%S UTC"));
+                println!("  Oldest: {}", oldest_dt.format("%Y-%m-%d %H:%M:%S UTC"));
+                println!("  Newest: {}", newest_dt.format("%Y-%m-%d %H:%M:%S UTC"));
             }
         }
 
         Commands::Verify => {
-            let report = log::verify_integrity(&conn).expect("Failed to verify database integrity");
+            let report =
+                log::verify_integrity(&conn).expect("Failed to verify database integrity");
             let issues =
                 report.missing_or_invalid_hashes + report.hash_mismatches + report.orphan_chunks;
 
@@ -388,7 +403,6 @@ fn main() {
                 &db_path, &model, tokenizer, 512,
             ) {
                 Ok(mut service) => {
-                    // Query events by source
                     let events =
                         view::by_source(&conn, &source, None).expect("Failed to query events");
 
@@ -450,15 +464,6 @@ fn main() {
                     std::process::exit(1);
                 }
             }
-        }
-
-        #[cfg(not(feature = "embedding"))]
-        Commands::Embed { .. } => {
-            eprintln!("⚠️  Embed command requires the 'embedding' feature");
-            eprintln!("Add 'embedding' to your Cargo.toml dependencies:");
-            eprintln!("  [features]");
-            eprintln!("  embedding = [\"tokenizers\", \"serde\", \"thiserror\", \"tracing\"]");
-            std::process::exit(1);
         }
 
         #[cfg(feature = "embedding")]
@@ -524,15 +529,6 @@ fn main() {
             }
         }
 
-        #[cfg(not(feature = "embedding"))]
-        Commands::SearchSimilar { .. } => {
-            eprintln!("⚠️  Search similar command requires the 'embedding' feature");
-            eprintln!("Add 'embedding' to your Cargo.toml dependencies:");
-            eprintln!("  [features]");
-            eprintln!("  embedding = [\"tokenizers\", \"serde\", \"thiserror\", \"tracing\"]");
-            std::process::exit(1);
-        }
-
         Commands::Attention { flagged, stats } => {
             if stats {
                 let attention_stats = mirror_log::AttentionLayer::default()
@@ -543,7 +539,10 @@ fn main() {
                 println!("  Active events: {}", attention_stats.active_events);
                 println!("  Pinned events: {}", attention_stats.pinned_events);
                 println!("  Flagged events: {}", attention_stats.flagged_events);
-                println!("  Active percentage: {:.2}%", attention_stats.active_percentage());
+                println!(
+                    "  Active percentage: {:.2}%",
+                    attention_stats.active_percentage()
+                );
             } else if flagged {
                 let flagged_items = mirror_log::AttentionLayer::default()
                     .get_flagged_items(&conn)
@@ -581,8 +580,7 @@ fn main() {
         }
 
         Commands::AddToAttention { event_id } => {
-            match mirror_log::AttentionLayer::default()
-                .add_to_attention(&conn, &event_id) {
+            match mirror_log::AttentionLayer::default().add_to_attention(&conn, &event_id) {
                 Ok(_) => println!("Added event to attention: {}", event_id),
                 Err(e) => {
                     eprintln!("Failed to add event to attention: {}", e);

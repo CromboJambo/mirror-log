@@ -152,6 +152,105 @@ mirror-log add "Very long content that exceeds the chunk size threshold..."
 
 Chunking is configured by the `chunk_size` parameter (default: 1500 bytes).
 
+### Large Quantized Models
+
+For handling large quantized models in this project, follow these guidelines:
+
+**Model Selection & Integration**
+- Use Hugging Face's `transformers` crate with `tokenizers` for model loading
+- For quantized models, prefer GGUF format for better performance on CPU
+- Implement feature-gated support using `#[cfg(feature = "embedding")]`
+- Store embedding configurations in `src/embedding.rs`
+ 
+**Performance Considerations**
+- Use batch processing for multiple embeddings to reduce overhead
+- Implement caching for frequently accessed embeddings
+- Set appropriate memory limits when loading models (e.g., 2GB max)
+- For large quantized models, consider streaming or chunked inference
+
+**Development Strategy**
+1. Begin with basic embedding support using `sentence-transformers` models
+2. Implement feature flags to enable/disable embedding functionality
+3. Add batch processing capabilities for high-throughput scenarios
+4. Include memory management strategies for large model loading
+5. Create integration tests for embedding workflows
+
+**Feature Gate Implementation**
+```rust
+#[cfg(feature = "embedding")]
+pub mod embedding {
+   // Embedding implementation here
+}
+```
+
+This approach allows you to keep the core functionality lean while enabling optional advanced features.
+
+### Large Quantized Models
+
+For handling large quantized models in this project, follow these guidelines:
+
+**Model Selection & Integration**
+- Use Hugging Face's `transformers` crate with `tokenizers` for model loading
+- For quantized models, prefer GGUF format for better performance on CPU
+- Implement feature-gated support using `#[cfg(feature = "embedding")]`
+- Store embedding configurations in `src/embedding.rs`
+
+**Performance Considerations**
+- Use batch processing for multiple embeddings to reduce overhead
+- Implement caching for frequently accessed embeddings
+- Set appropriate memory limits when loading models (e.g., 2GB max)
+- For large quantized models, consider streaming or chunked inference
+
+**Development Strategy**
+1. Begin with basic embedding support using `sentence-transformers` models
+2. Implement feature flags to enable/disable embedding functionality
+3. Add batch processing capabilities for high-throughput scenarios
+4. Include memory management strategies for large model loading
+5. Create integration tests for embedding workflows
+
+**Feature Gate Implementation**
+```rust
+#[cfg(feature = "embedding")]
+pub mod embedding {
+   // Embedding implementation here
+}
+```
+
+This approach allows you to keep the core functionality lean while enabling optional advanced features.
+
+### Large Quantized Models
+
+For handling large quantized models in this project, follow these guidelines:
+
+**Model Selection & Integration**
+- Use Hugging Face's `transformers` crate with `tokenizers` for model loading
+- For quantized models, prefer GGUF format for better performance on CPU
+- Implement feature-gated support using `#[cfg(feature = "embedding")]`
+- Store embedding configurations in `src/embedding.rs`
+
+**Performance Considerations**
+- Use batch processing for multiple embeddings to reduce overhead
+- Implement caching for frequently accessed embeddings
+- Set appropriate memory limits when loading models (e.g., 2GB max)
+- For large quantized models, consider streaming or chunked inference
+
+**Development Strategy**
+1. Begin with basic embedding support using `sentence-transformers` models
+2. Implement feature flags to enable/disable embedding functionality
+3. Add batch processing capabilities for high-throughput scenarios
+4. Include memory management strategies for large model loading
+5. Create integration tests for embedding workflows
+
+**Feature Gate Implementation**
+```rust
+#[cfg(feature = "embedding")]
+pub mod embedding {
+    // Embedding implementation here
+}
+```
+
+This approach allows you to keep the core functionality lean while enabling optional advanced features.
+
 ### Duplicate Detection
 
 Mirror-Log tracks duplicates using SHA256 hashing:
@@ -533,7 +632,7 @@ rm mirror.db
 
 **A**: Embeddings are vector representations of content that enable semantic similarity search. They're generated using tokenization and simple embedding algorithms.
 
-### Q: How do I generate embeddings? (coming in next version)
+### Q: How do I generate embeddings?
 
 **A**: Use the `mirror-log embed` command to generate embeddings for events in a specific source.
 
@@ -543,19 +642,134 @@ rm mirror.db
 - `search`: searches full event content using text matching
 - `search-similar`: searches using semantic similarity with vector embeddings
 
-### Q: How do embeddings work?
+### Q: How do large quantized models work?
 
-**A**: Embeddings are vector representations of content that enable semantic similarity search. They're generated using tokenization and simple embedding algorithms.
+**A**: Large quantized models are compressed versions of neural networks that maintain high accuracy while reducing memory usage and computational requirements. They're particularly useful for local inference on devices with limited resources.
 
+### Q: How do I integrate a large quantized model?
+
+**A**: 
+1. Add the required dependencies to `Cargo.toml`:
+```toml
+[dependencies]
+tokenizers = { version = "0.14", features = ["onig"] }
+transformers = "0.18"
+```
+
+2. Implement feature-gated embedding functionality in `src/embedding.rs`
+3. Create a model loading strategy that handles quantized models efficiently
+
+### Q: How do I handle memory constraints with large models?
+
+**A**: 
+- Use the `memory_limit` parameter to control how much RAM is used
+- Implement batched processing for high-throughput scenarios  
+- Add caching mechanisms for frequently accessed embeddings
+- Consider streaming inference when possible
 ### Q: How do I generate embeddings?
 
 **A**: Use the `mirror-log embed` command to generate embeddings for events in a specific source.
+
+# What's the difference between search and search-similar?
+
+**A**: 
+- `search`: searches full event content using text matching
+- `search-similar`: searches using semantic similarity with vector embeddings
+
+### Q: How do large quantized models work?
+
+**A**: Large quantized models are compressed versions of neural networks that maintain high accuracy while reducing memory usage and computational requirements. They're particularly useful for local inference on devices with limited resources.
+
+### Q: How do I integrate a large quantized model?
+
+**A**: 
+1. Add the required dependencies to `Cargo.toml`:
+```toml
+[dependencies]
+tokenizers = { version = "0.14", features = ["onig"] }
+transformers = "0.18"
+```
+
+2. Implement feature-gated embedding functionality in `src/embedding.rs`
+3. Create a model loading strategy that handles quantized models efficiently
+
+### Q: How do I handle memory constraints with large models?
+
+**A**: 
+- Use the `memory_limit` parameter to control how much RAM is used
+- Implement batched processing for high-throughput scenarios  
+- Add caching mechanisms for frequently accessed embeddings
+- Consider streaming inference when possible
+ 
+### Q: How do I optimize large model performance?
+
+**A**: 
+1. Use quantized models (Q4, Q5) for better memory efficiency
+2. Implement batching to reduce overhead from multiple small requests  
+3. Cache frequently accessed embeddings in memory
+4. Use appropriate thread pools for concurrent processing
 
 ### Q: What's the difference between search and search-similar?
 
 **A**: 
 - `search`: searches full event content using text matching
 - `search-similar`: searches using semantic similarity with vector embeddings
+
+### Q: How do large quantized models work?
+
+**A**: Large quantized models are compressed versions of neural networks that maintain high accuracy while reducing memory usage and computational requirements. They're particularly useful for local inference on devices with limited resources.
+
+### Q: How do I integrate a large quantized model?
+
+**A**: 
+1. Add the required dependencies to `Cargo.toml`:
+```toml
+[dependencies]
+tokenizers = { version = "0.14", features = ["onig"] }
+transformers = "0.18"
+```
+
+2. Implement feature-gated embedding functionality in `src/embedding.rs`
+3. Create a model loading strategy that handles quantized models efficiently
+
+### Q: How do I handle memory constraints with large models?
+
+**A**: 
+- Use the `memory_limit` parameter to control how much RAM is used
+- Implement batched processing for high-throughput scenarios  
+- Add caching mechanisms for frequently accessed embeddings
+- Consider streaming inference when possible
+
+### Q: What's the difference between search and search-similar?
+
+**A**: 
+- `search`: searches full event content using text matching
+- `search-similar`: searches using semantic similarity with vector embeddings
+
+### Q: How do large quantized models work?
+
+**A**: Large quantized models are compressed versions of neural networks that maintain high accuracy while reducing memory usage and computational requirements. They're particularly useful for local inference on devices with limited resources.
+
+### Q: How do I integrate a large quantized model?
+
+**A**: 
+1. Add the required dependencies to `Cargo.toml`:
+```toml
+[dependencies]
+tokenizers = { version = "0.14", features = ["onig"] }
+transformers = "0.18"
+```
+
+2. Implement feature-gated embedding functionality in `src/embedding.rs`
+3. Create a model loading strategy that handles quantized models efficiently
+
+### Q: How do I handle memory constraints with large models?
+
+**A**: 
+- Use the `memory_limit` parameter to control how much RAM is used
+- Implement batched processing for high-throughput scenarios  
+- Add caching mechanisms for frequently accessed embeddings
+- Consider streaming inference when possible
 
 
 ## Support and Resources

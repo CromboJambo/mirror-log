@@ -3,12 +3,6 @@
 version = 4
 
 [[package]]
-name = "a-hole"
-version = "0.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26c359a75c124ebb5524f7f2f03e31b97b86d17d3aec2ab2dc97794e0ef8da4a"
-
-[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1197,7 +1191,6 @@ dependencies = [
 name = "mirror-log"
 version = "0.1.8"
 dependencies = [
- "a-hole",
  "arboard",
  "chrono",
  "clap",
