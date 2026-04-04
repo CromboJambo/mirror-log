@@ -1,17 +1,4 @@
-```
-░  ░░░░  ░░        ░░       ░░░       ░░░░      ░░░       ░░░  ░░░░░░░░░      ░░░░      ░░
-▒   ▒▒   ▒▒▒▒▒  ▒▒▒▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒▒▒▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒▒▒▒
-▓        ▓▓▓▓▓  ▓▓▓▓▓       ▓▓▓       ▓▓▓  ▓▓▓▓  ▓▓       ▓▓▓  ▓▓▓▓▓▓▓▓  ▓▓▓▓  ▓▓  ▓▓▓   ▓
-█  █  █  █████  █████  ███  ███  ███  ███  ████  ██  ███  ███  ████████  ████  ██  ████  █
-█  ████  ██        ██  ████  ██  ████  ███      ███  ████  ██        ███      ████      ██
-
-█  ████  ██        ██  ████  ██  ████  ███      ███  ████  ██        ███      ████      ██
-█  █  █  █████  █████  ███  ███  ███  ███  ████  ██  ███  ███  ████████  ████  ██  ████  █
-▓        ▓▓▓▓▓  ▓▓▓▓▓       ▓▓▓       ▓▓▓  ▓▓▓▓  ▓▓       ▓▓▓  ▓▓▓▓▓▓▓▓  ▓▓▓▓  ▓▓  ▓▓▓   ▓
-▒   ▒▒   ▒▒▒▒▒  ▒▒▒▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒▒▒▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒▒▒▒
-░  ░░░░  ░░        ░░       ░░░       ░░░░      ░░░       ░░░  ░░░░░░░░░      ░░░░      ░░
-```                                                                                          
-An append-only event log for capturing thoughts, notes, and data you do not want to lose.
+`mirror-log` is a local-first event log for capturing notes, commands, snippets, and other context you do not want to lose. Persisted events live in SQLite. Staged events live as JSON files in `staging/` until you review or process them.
 
 [![CI](https://github.com/CromboJambo/mirror-log/actions/workflows/ci.yml/badge.svg)](https://github.com/CromboJambo/mirror-log/actions/workflows/ci.yml)
 [![Release](https://github.com/CromboJambo/mirror-log/actions/workflows/release.yml/badge.svg)](https://github.com/CromboJambo/mirror-log/actions/workflows/release.yml)
@@ -19,137 +6,122 @@ An append-only event log for capturing thoughts, notes, and data you do not want
 [![Docs.rs](https://docs.rs/mirror-log/badge.svg)](https://docs.rs/mirror-log)
 [![License](https://img.shields.io/crates/l/mirror-log.svg)](https://github.com/CromboJambo/mirror-log/blob/main/LICENSE)
 
+Version `0.1.9` reflects the current shipped behavior: a lean SQLite core, staging helpers for review-oriented workflows, an attention/decay layer, and optional embedding or inference integrations behind Cargo features.
 
+## What It Does
 
-`mirror-log` is local-first, SQLite-backed, and designed to be boring in the best way: easy to inspect, easy to script, and hard to accidentally lose context.
+- Persists events to SQLite with UUIDs, timestamps, hashes, and chunk records
+- Stages reviewable JSON events in `staging/`
+- Searches full events and chunked content
+- Tracks duplicates by `content_hash`
+- Exposes attention and decay views over persisted events
+- Supports optional embeddings, inference backends, iteration tables, and clipboard ingestion
 
-The default build is intentionally lean: SQLite is the source of truth, direct SQL stays first-class, and optional embedding work lives behind a feature flag instead of in the core path.
-
-## Quick Start
+## Current Workflow
 
 ```bash
-# Add one event
+# Stage a single event as JSON in ./staging
 mirror-log add "Overhead allocation needs review" --source journal
 
-# Add from file
+# Stage a file as JSON in ./staging
 mirror-log add-file notes.md --source meetings
 
-# Bulk import from stdin (one line = one event)
+# Persist stdin events to SQLite in batches, then also write staged copies
 cat ideas.txt | mirror-log stdin --source ideas
 
-# Show recent
+# Review staged events
+mirror-log review
+
+# Detect simple patterns from staged events
+mirror-log infer
+
+# Render staged events back out
+mirror-log regenerate --output human.md
+
+# Query persisted events
 mirror-log show --last 10
-
-# Search full events
-mirror-log search "overhead"
-
-# Search chunked content
+mirror-log search "allocation"
 mirror-log search "allocation" --chunks
+mirror-log get <event-id>
 
-# Ingestion stats (total/unique/duplicates)
+# Database and integrity views
 mirror-log stats
-
-# Database summary
 mirror-log info
-
-# Integrity verification (hash + relational checks)
 mirror-log verify
 
-# Generate embeddings for events (optional feature)
-# mirror-log embed --source journal
-
-# Search similar events using embeddings (optional feature)
-# mirror-log search-similar "overhead allocation" --limit 5
+# Attention layer
+mirror-log attention
+mirror-log attention --flagged
+mirror-log attention --stats
+mirror-log add-to-attention <event-id>
 ```
 
 ## Installation
 
 ```bash
-# Clone and build
 git clone https://github.com/CromboJambo/mirror-log
 cd mirror-log
 cargo build --release
 
-# Binary location: target/release/mirror-log
-
-# Optional embedding commands
+# Optional feature paths
 cargo build --release --features embedding
+cargo build --release --features inference
+cargo build --release --features clipboard
 
 # Or install locally
 cargo install --path .
 ```
 
+The binary is written to `target/release/mirror-log`.
+
+## Storage Model
+
+Persisted log data lives in `mirror.db` by default.
+
+- `events` stores the canonical persisted event log
+- `chunks` stores chunked slices for large content and chunk search
+- `decay` and `shadow_state` support attention/visibility behavior
+- `event_embeddings`, `event_tags`, `event_links`, and iteration tables support enrichment-oriented workflows
+
+Staged data is separate from the persisted log.
+
+- `add` and `add-file` write `StagedEvent` JSON files to `staging/`
+- `stdin` currently persists events to SQLite first and then emits staged copies for review
+- Persisted events are append-only; staged files are a working set
+
+## Features
+
+The default build is intentionally lean.
+
+- `embedding`: tokenizers-backed embedding generation and similarity search
+- `inference`: HTTP inference backend support
+- `iteration`: iteration query and type exports
+- `clipboard`: clipboard watcher support
+
+Attention and staging are part of the current default build, not separate feature flags.
+
 ## Documentation
 
-- **[User Guide](docs/USER_GUIDE.md)** - Comprehensive documentation with examples, advanced features, and best practices
-- **[Canonical Pipeline](docs/CANONICAL_PIPELINE.md)** - Formal order of operations and governance layers
-- **[API Documentation](src/lib.rs)** - Library usage for programmatic access
+- [USER_GUIDE.md](USER_GUIDE.md): usage, storage, and workflow details
+- [src/lib.rs](src/lib.rs): public module and re-export surface
+- [CHANGELOG.md](CHANGELOG.md): release history
 
-## Core Principles
+## Direct SQLite Access
 
-- **Append-only**: Events are never updated or deleted
-- **SQLite is source of truth**: Your data stays local and inspectable
-- **No hidden layers**: Direct SQL remains first-class
-- **Source-aware logging**: Every event tracks where it came from
-- **Optional enrichment**: Embeddings stay outside the default build
-
-## Canonical Pipeline
-
-Mirror-Log ingestion follows one sequence:
-
-1. `capture`
-2. `persist`
-3. `structure`
-4. `enrich` (human-level, via explicit structure)
-
-The nested design structure is:
-
-`law -> principle -> right -> rule -> guideline`
-
-## Data Model
-
-### Main Tables
-
-**Events Table**
-- `id TEXT PRIMARY KEY` (UUID)
-- `timestamp INTEGER NOT NULL` (event timestamp)
-- `source TEXT NOT NULL`
-- `content TEXT NOT NULL`
-- `meta TEXT NULL`
-- `ingested_at INTEGER NOT NULL`
-- `content_hash TEXT NULL` (SHA256 for dedupe analytics)
-
-**Chunks Table**
-- Stores chunked slices of event content
-- Used by `search --chunks` and large-content workflows
-
-### Direct SQLite Access
-
-```bash
-sqlite3 mirror.db
-
-# Query events
+```sql
 SELECT datetime(timestamp, 'unixepoch'), source, content
 FROM events
 ORDER BY timestamp DESC
 LIMIT 10;
 
-# Count by source
 SELECT source, COUNT(*)
 FROM events
 GROUP BY source
 ORDER BY COUNT(*) DESC;
 
-# Get stats
 SELECT COUNT(*) AS total,
        COUNT(DISTINCT content_hash) AS unique_events
 FROM events;
-
-# View embeddings (optional feature)
-# SELECT e.id, e.content, emb.embedding
-# FROM events e
-# JOIN event_embeddings emb ON e.id = emb.event_id
-# LIMIT 10;
 ```
 
 ## Development
@@ -160,22 +132,12 @@ cargo clippy --all-targets --all-features -- -D warnings
 cargo test
 ```
 
-### Dependency Audit
+Dependency audit helpers:
 
 ```bash
-# Compare declared, active direct, and full transitive dependency surfaces
 scripts/dep-audit.sh
-
-# Audit an optional feature path
 scripts/dep-audit.sh --features embedding
-
-# Emit a compact line for mirror-log indexing
-MIRROR_LOG_INDEX=1 scripts/dep-audit.sh
-
-# Only append a new audit event when the surface changes
 scripts/log-dep-audit.sh
-
-# Log both the default surface and optional feature paths
 scripts/log-dep-audit-matrix.sh
 ```
 

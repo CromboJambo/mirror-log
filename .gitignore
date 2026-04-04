@@ -27,3 +27,6 @@ staging/
 .DS_Store
 Thumbs.db
 .aider*
+
+# Personal human.md (use human.example.md as template)
+human.md

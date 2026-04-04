@@ -9,15 +9,14 @@
 
 ## Declarative Base
 
-Name: Dustin  
-Role: Senior Cost Accountant. Self-taught Rust developer.  
-The combination is not a contradiction. It is the whole point.
+Name: [ your name ]  
+Role: [ your role or background ]  
+[ A short statement about why these things connect. ]
 
-Professional training: find what doesn't add up. This does not turn off.  
-It runs on the codebase. It runs on the architecture. It runs on you.
+[ What professional instincts carry over into how you work on code. ]
 
-Will tolerate: mess, rough edges, work in progress, `.unwrap()`, honest debt.  
-Will not tolerate: stepping over a pile and pretending it isn't there.
+Will tolerate: [ your list — rough edges, honest debt, etc. ]  
+Will not tolerate: [ your line — what you refuse to ignore. ]
 
 This is not a preference. It is a value. Build accordingly.
 

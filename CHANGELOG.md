@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.9] - 2026-04-04
+
+### Added
+- Staged event workflow documentation covering `add`, `add-file`, `review`, `infer`, and `regenerate`
+- Release documentation updates for the current CLI surface, attention commands, and persistence model
+
+### Changed
+- Updated package version to `0.1.9`
+- Rewrote `README.md` to match the current repository layout and command behavior
+- Rewrote `USER_GUIDE.md` to describe the shipped workflow instead of the deleted roadmap and pipeline docs
+- Clarified that `add` and `add-file` stage JSON events in `staging/`, while `stdin` persists batched events and also stages copies
+- Removed stale references to deleted documentation files
+
+### Fixed
+- Documentation drift around canonical ingestion, feature gating, and file locations
+- Broken documentation links pointing at removed `docs/` content
+
+### Deprecated
+- None
+
+### Removed
+- None
+
 ## [0.1.8] - 2026-03-30
 
 ### Added
@@ -88,5 +111,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - None
 
 [0.1.8]: https://github.com/CromboJambo/mirror-log/compare/v0.1.7...v0.1.8
+[0.1.9]: https://github.com/CromboJambo/mirror-log/compare/v0.1.8...v0.1.9
 [0.1.7]: https://github.com/CromboJambo/mirror-log/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/CromboJambo/mirror-log/compare/v0.1.5...v0.1.6
