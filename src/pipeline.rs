@@ -107,11 +107,13 @@ pub struct IngestBatchResult {
 }
 
 pub fn ingest_single(conn: &Connection, request: IngestRequest<'_>) -> Result<IngestResult> {
-    let receipt = log::append_with_receipt(conn, request.source, request.content, request.meta)?;
+    let tx = conn.unchecked_transaction()?;
+    let receipt =
+        log::append_with_receipt_in_tx(&tx, request.source, request.content, request.meta)?;
 
     let chunk_count = if request.should_chunk() {
         chunk::create_chunks(
-            conn,
+            &tx,
             &receipt.id,
             request.content,
             receipt.timestamp,
@@ -131,6 +133,8 @@ pub fn ingest_single(conn: &Connection, request: IngestRequest<'_>) -> Result<In
             receipt.id
         );
     }
+
+    tx.commit()?;
 
     Ok(IngestResult {
         event_id: receipt.id,
@@ -234,8 +238,9 @@ fn flush_batch(
     chunk_size: usize,
     result: &mut IngestBatchResult,
 ) -> io::Result<()> {
+    let tx = conn.unchecked_transaction().map_err(io::Error::other)?;
     let content_refs: Vec<&str> = batch.iter().map(String::as_str).collect();
-    let receipts = log::append_batch_with_receipts(conn, source, &content_refs, meta)
+    let receipts = log::append_batch_with_receipts_in_tx(&tx, source, &content_refs, meta)
         .map_err(io::Error::other)?;
 
     for (content, receipt) in batch.iter().zip(receipts.into_iter()) {
@@ -244,7 +249,7 @@ fn flush_batch(
 
         if chunk_size > 0 && content.len() > chunk_threshold {
             let chunk_count =
-                chunk::create_chunks(conn, &event_id, content, receipt.timestamp, chunk_size)
+                chunk::create_chunks(&tx, &event_id, content, receipt.timestamp, chunk_size)
                     .map_err(io::Error::other)?;
             if chunk_count > 0 {
                 result.chunked_events += 1;
@@ -253,6 +258,7 @@ fn flush_batch(
         }
     }
 
+    tx.commit().map_err(io::Error::other)?;
     batch.clear();
     Ok(())
 }

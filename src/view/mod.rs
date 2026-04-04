@@ -41,6 +41,9 @@ pub fn recent(conn: &Connection, limit: i64) -> Result<Vec<Event>> {
     let mut stmt = conn.prepare(
         "SELECT id, timestamp, source, content, meta, ingested_at, content_hash
          FROM events
+         WHERE NOT EXISTS (
+             SELECT 1 FROM shadow_state s WHERE s.event_id = events.id
+         )
          ORDER BY timestamp DESC
          LIMIT ?1",
     )?;
@@ -67,6 +70,9 @@ pub fn search(conn: &Connection, term: &str) -> Result<Vec<Event>> {
         "SELECT id, timestamp, source, content, meta, ingested_at, content_hash
          FROM events
          WHERE content LIKE ?1
+         AND NOT EXISTS (
+             SELECT 1 FROM shadow_state s WHERE s.event_id = events.id
+         )
          ORDER BY timestamp DESC",
     )?;
 
@@ -91,6 +97,9 @@ pub fn by_source(conn: &Connection, source: &str, limit: Option<i64>) -> Result<
             "SELECT id, timestamp, source, content, meta, ingested_at, content_hash
              FROM events
              WHERE source = ?1
+             AND NOT EXISTS (
+                 SELECT 1 FROM shadow_state s WHERE s.event_id = events.id
+             )
              ORDER BY timestamp DESC
              LIMIT {}",
             lim
@@ -99,6 +108,9 @@ pub fn by_source(conn: &Connection, source: &str, limit: Option<i64>) -> Result<
         "SELECT id, timestamp, source, content, meta, ingested_at, content_hash
          FROM events
          WHERE source = ?1
+         AND NOT EXISTS (
+             SELECT 1 FROM shadow_state s WHERE s.event_id = events.id
+         )
          ORDER BY timestamp DESC"
             .to_string()
     };
@@ -152,6 +164,9 @@ pub fn by_ingestion_time(
             "SELECT id, timestamp, source, content, meta, ingested_at, content_hash
              FROM events
              WHERE ingested_at BETWEEN ?1 AND ?2
+             AND NOT EXISTS (
+                 SELECT 1 FROM shadow_state s WHERE s.event_id = events.id
+             )
              ORDER BY ingested_at DESC
              LIMIT {}",
             lim
@@ -160,6 +175,9 @@ pub fn by_ingestion_time(
         "SELECT id, timestamp, source, content, meta, ingested_at, content_hash
          FROM events
          WHERE ingested_at BETWEEN ?1 AND ?2
+         AND NOT EXISTS (
+             SELECT 1 FROM shadow_state s WHERE s.event_id = events.id
+         )
          ORDER BY ingested_at DESC"
             .to_string()
     };
@@ -183,10 +201,22 @@ pub fn by_ingestion_time(
 
 /// Get deduplication statistics
 pub fn dedup_stats(conn: &Connection) -> Result<(i64, i64)> {
-    let total: i64 = conn.query_row("SELECT COUNT(*) FROM events", [], |row| row.get(0))?;
+    let total: i64 = conn.query_row(
+        "SELECT COUNT(*)
+         FROM events
+         WHERE NOT EXISTS (
+             SELECT 1 FROM shadow_state s WHERE s.event_id = events.id
+         )",
+        [],
+        |row| row.get(0),
+    )?;
     let unique: i64 = conn
         .query_row(
-            "SELECT COUNT(DISTINCT content_hash) FROM events",
+            "SELECT COUNT(DISTINCT content_hash)
+             FROM events
+             WHERE NOT EXISTS (
+                 SELECT 1 FROM shadow_state s WHERE s.event_id = events.id
+             )",
             [],
             |row| row.get(0),
         )
@@ -201,6 +231,9 @@ pub fn find_duplicates(conn: &Connection, content_hash: &str) -> Result<Vec<Even
         "SELECT id, timestamp, source, content, meta, ingested_at, content_hash
          FROM events
          WHERE content_hash = ?1
+         AND NOT EXISTS (
+             SELECT 1 FROM shadow_state s WHERE s.event_id = events.id
+         )
          ORDER BY ingested_at ASC",
     )?;
 

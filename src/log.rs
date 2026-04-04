@@ -1,7 +1,11 @@
-use rusqlite::{params, Connection, Result};
+use rusqlite::{params, Connection, Error as SqlError, Result};
 use sha2::{Digest, Sha256};
+use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
+
+const BUSY_RETRY_ATTEMPTS: usize = 10;
+const BUSY_RETRY_DELAY_MS: u64 = 10;
 
 #[derive(Debug, Clone, Copy)]
 pub struct IntegrityReport {
@@ -38,6 +42,20 @@ pub fn append(
 
 /// Append a single event and return the canonical persistence receipt.
 pub fn append_with_receipt(
+    conn: &Connection,
+    source: &str,
+    content: &str,
+    meta: Option<&str>,
+) -> Result<AppendReceipt> {
+    with_busy_retry(|| {
+        let tx = conn.unchecked_transaction()?;
+        let receipt = append_with_receipt_in_tx(&tx, source, content, meta)?;
+        tx.commit()?;
+        Ok(receipt)
+    })
+}
+
+pub(crate) fn append_with_receipt_in_tx(
     conn: &Connection,
     source: &str,
     content: &str,
@@ -100,54 +118,102 @@ pub fn append_batch_with_receipts(
     contents: &[&str],
     meta: Option<&str>,
 ) -> Result<Vec<AppendReceipt>> {
-    let mut receipts = Vec::new();
+    with_busy_retry(|| {
+        let tx = conn.unchecked_transaction()?;
+        let receipts = append_batch_with_receipts_in_tx(&tx, source, contents, meta)?;
+        tx.commit()?;
+        Ok(receipts)
+    })
+}
 
-    // Wrap all inserts in a single transaction for atomicity
-    let tx = conn.unchecked_transaction()?;
+pub(crate) fn append_batch_with_receipts_in_tx(
+    conn: &Connection,
+    source: &str,
+    contents: &[&str],
+    meta: Option<&str>,
+) -> Result<Vec<AppendReceipt>> {
+    let mut receipts = Vec::with_capacity(contents.len());
 
     let now = unix_now_secs();
     let last_ts: Option<i64> =
-        tx.query_row("SELECT MAX(timestamp) FROM events", [], |row| row.get(0))?;
+        conn.query_row("SELECT MAX(timestamp) FROM events", [], |row| row.get(0))?;
     let mut timestamp = match last_ts {
         Some(last) if now <= last => last + 1,
         _ => now,
     };
 
     for content in contents {
-        let id = Uuid::new_v4().to_string();
-        let ingested_at = timestamp;
-
-        // Calculate content hash
-        let mut hasher = Sha256::new();
-        hasher.update(content.as_bytes());
-        let content_hash = format!("{:x}", hasher.finalize());
-
-        tx.execute(
-            "INSERT INTO events (id, timestamp, source, content, meta, ingested_at, content_hash)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            params![
-                id,
-                timestamp,
-                source,
-                content,
-                meta,
-                ingested_at,
-                content_hash
-            ],
-        )?;
-
-        receipts.push(AppendReceipt {
-            id,
-            timestamp,
-            ingested_at,
-            content_hash,
-        });
+        let receipt = append_with_receipt_at_timestamp(conn, source, content, meta, timestamp)?;
+        receipts.push(receipt);
         timestamp += 1;
     }
 
-    tx.commit()?;
-
     Ok(receipts)
+}
+
+fn append_with_receipt_at_timestamp(
+    conn: &Connection,
+    source: &str,
+    content: &str,
+    meta: Option<&str>,
+    timestamp: i64,
+) -> Result<AppendReceipt> {
+    let id = Uuid::new_v4().to_string();
+    let ingested_at = timestamp;
+
+    let mut hasher = Sha256::new();
+    hasher.update(content.as_bytes());
+    let content_hash = format!("{:x}", hasher.finalize());
+
+    conn.execute(
+        "INSERT INTO events (id, timestamp, source, content, meta, ingested_at, content_hash)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            id,
+            timestamp,
+            source,
+            content,
+            meta,
+            ingested_at,
+            content_hash
+        ],
+    )?;
+
+    Ok(AppendReceipt {
+        id,
+        timestamp,
+        ingested_at,
+        content_hash,
+    })
+}
+
+fn with_busy_retry<T, F>(mut operation: F) -> Result<T>
+where
+    F: FnMut() -> Result<T>,
+{
+    let mut attempts = 0;
+
+    loop {
+        match operation() {
+            Ok(value) => return Ok(value),
+            Err(err) if is_busy_error(&err) && attempts < BUSY_RETRY_ATTEMPTS => {
+                attempts += 1;
+                thread::sleep(std::time::Duration::from_millis(BUSY_RETRY_DELAY_MS));
+            }
+            Err(err) => return Err(err),
+        }
+    }
+}
+
+fn is_busy_error(err: &SqlError) -> bool {
+    matches!(
+        err,
+        SqlError::SqliteFailure(code, _)
+            if matches!(
+                code.code,
+                rusqlite::ffi::ErrorCode::DatabaseBusy | rusqlite::ffi::ErrorCode::DatabaseLocked
+            )
+    )
 }
 
 /// Append events from stdin with configurable batch size
@@ -162,6 +228,7 @@ pub fn append_stdin(
     let stdin = io::stdin();
     let mut all_ids = Vec::new();
     let mut batch: Vec<String> = Vec::new();
+    let effective_batch_size = batch_size.max(1);
 
     for line in stdin.lock().lines() {
         let line = line?;
@@ -171,20 +238,11 @@ pub fn append_stdin(
         }
 
         // Execute batch when we reach the configured size
-        if batch.len() >= batch_size {
+        if batch.len() >= effective_batch_size {
             let contents: Vec<&str> = batch.iter().map(|s| s.as_str()).collect();
             match append_batch(conn, source, &contents, meta) {
                 Ok(ids) => all_ids.extend(ids),
-                Err(e) => {
-                    // If we fail, flush the remaining batch and return error
-                    if !batch.is_empty() {
-                        let contents: Vec<&str> = batch.iter().map(|s| s.as_str()).collect();
-                        if let Ok(ids) = append_batch(conn, source, &contents, meta) {
-                            all_ids.extend(ids);
-                        }
-                    }
-                    return Err(io::Error::other(e));
-                }
+                Err(e) => return Err(io::Error::other(e)),
             }
             batch.clear();
         }
@@ -217,19 +275,47 @@ pub fn is_duplicate(conn: &Connection, content_hash: &str) -> Result<bool> {
 
 /// Get statistics about the events
 pub fn stats(conn: &Connection) -> Result<(i64, i64, i64, i64)> {
-    let total: i64 = conn.query_row("SELECT COUNT(*) FROM events", [], |row| row.get(0))?;
+    let total: i64 = conn.query_row(
+        "SELECT COUNT(*)
+         FROM events
+         WHERE NOT EXISTS (
+             SELECT 1 FROM shadow_state s WHERE s.event_id = events.id
+         )",
+        [],
+        |row| row.get(0),
+    )?;
     let unique: i64 = conn
         .query_row(
-            "SELECT COUNT(DISTINCT content_hash) FROM events",
+            "SELECT COUNT(DISTINCT content_hash)
+             FROM events
+             WHERE NOT EXISTS (
+                 SELECT 1 FROM shadow_state s WHERE s.event_id = events.id
+             )",
             [],
             |row| row.get(0),
         )
         .unwrap_or(0);
     let oldest: i64 = conn
-        .query_row("SELECT MIN(timestamp) FROM events", [], |row| row.get(0))
+        .query_row(
+            "SELECT MIN(timestamp)
+             FROM events
+             WHERE NOT EXISTS (
+                 SELECT 1 FROM shadow_state s WHERE s.event_id = events.id
+             )",
+            [],
+            |row| row.get(0),
+        )
         .unwrap_or(0);
     let newest: i64 = conn
-        .query_row("SELECT MAX(timestamp) FROM events", [], |row| row.get(0))
+        .query_row(
+            "SELECT MAX(timestamp)
+             FROM events
+             WHERE NOT EXISTS (
+                 SELECT 1 FROM shadow_state s WHERE s.event_id = events.id
+             )",
+            [],
+            |row| row.get(0),
+        )
         .unwrap_or(0);
 
     Ok((total, unique, oldest, newest))

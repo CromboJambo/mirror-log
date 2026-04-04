@@ -105,6 +105,9 @@ pub fn search_chunks(conn: &Connection, term: &str, limit: Option<i64>) -> Resul
             "SELECT id, event_id, chunk_index, content, start_offset, end_offset
              FROM chunks
              WHERE content LIKE ?1
+             AND NOT EXISTS (
+                 SELECT 1 FROM shadow_state s WHERE s.event_id = chunks.event_id
+             )
              ORDER BY timestamp DESC
              LIMIT {}",
             lim
@@ -113,6 +116,9 @@ pub fn search_chunks(conn: &Connection, term: &str, limit: Option<i64>) -> Resul
         "SELECT id, event_id, chunk_index, content, start_offset, end_offset
          FROM chunks
          WHERE content LIKE ?1
+         AND NOT EXISTS (
+             SELECT 1 FROM shadow_state s WHERE s.event_id = chunks.event_id
+         )
          ORDER BY timestamp DESC"
             .to_string()
     };
@@ -139,6 +145,9 @@ pub fn list_chunks(conn: &Connection, event_id: &str) -> Result<Vec<Chunk>> {
         "SELECT id, event_id, chunk_index, content, start_offset, end_offset
          FROM chunks
          WHERE event_id = ?1
+         AND NOT EXISTS (
+             SELECT 1 FROM shadow_state s WHERE s.event_id = chunks.event_id
+         )
          ORDER BY chunk_index ASC",
     )?;
 

@@ -22,17 +22,11 @@ pub fn init_decay_table(conn: &Connection) -> Result<()> {
 /// Initialize the shadow events table
 pub fn init_shadow_table(conn: &Connection) -> Result<()> {
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS shadow (
-            id TEXT PRIMARY KEY,
-            timestamp INTEGER NOT NULL,
-            source TEXT NOT NULL,
-            content TEXT NOT NULL,
-            meta TEXT,
-            ingested_at INTEGER NOT NULL,
-            content_hash TEXT,
+        "CREATE TABLE IF NOT EXISTS shadow_state (
+            event_id TEXT PRIMARY KEY,
             decay_score REAL NOT NULL,
             flagged_at INTEGER NOT NULL DEFAULT (unixepoch()),
-            FOREIGN KEY (id) REFERENCES events(id) ON DELETE CASCADE
+            FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
         )",
         [],
     )?;
@@ -66,8 +60,9 @@ pub fn get_decay_score(conn: &Connection, event_id: &str) -> Result<f64> {
         "SELECT
             CASE
                 WHEN last_accessed = 0 THEN 0
+                WHEN CAST((unixepoch() - last_accessed) / 86400 AS INTEGER) < 1 THEN CAST(access_count AS REAL)
                 ELSE CAST(access_count AS REAL) /
-                     GREATEST(1, CAST((unixepoch() - last_accessed) / 86400 AS INTEGER))
+                     CAST((unixepoch() - last_accessed) / 86400 AS REAL)
             END
          FROM decay
          WHERE event_id = ?1",
@@ -100,9 +95,11 @@ pub fn get_flagged_events(conn: &Connection) -> Result<Vec<String>> {
     let mut stmt = conn.prepare(
         "SELECT e.id FROM events e
          JOIN decay d ON e.id = d.event_id
+         LEFT JOIN shadow_state s ON e.id = s.event_id
          WHERE d.access_count < ?
          AND (unixepoch() - d.last_accessed) > ? * 86400
          AND d.pinned = 0
+         AND s.event_id IS NULL
          ORDER BY d.last_accessed ASC",
     )?;
 
@@ -118,7 +115,7 @@ pub fn get_flagged_events(conn: &Connection) -> Result<Vec<String>> {
     Ok(ids)
 }
 
-/// Move flagged events to shadow table
+/// Move flagged events to the shadow state so they no longer appear in normal queries.
 pub fn move_to_shadow(conn: &Connection) -> Result<usize> {
     let flagged_ids = get_flagged_events(conn)?;
 
@@ -134,22 +131,24 @@ pub fn move_to_shadow(conn: &Connection) -> Result<usize> {
         }
     }
 
-    // Move events to shadow table
+    let tx = conn.unchecked_transaction()?;
     let mut moved = 0;
     for (id, score) in scores {
         let now = UNIX_EPOCH.elapsed().unwrap().as_secs() as i64;
 
-        conn.execute(
-            "INSERT INTO shadow (id, timestamp, source, content, meta, ingested_at, content_hash, decay_score, flagged_at)
-             SELECT id, timestamp, source, content, meta, ingested_at, content_hash, ?1, ?2
-             FROM events
-             WHERE id = ?3",
-            params![score, now, id],
+        tx.execute(
+            "INSERT INTO shadow_state (event_id, decay_score, flagged_at)
+             VALUES (?1, ?2, ?3)
+             ON CONFLICT(event_id) DO UPDATE SET
+                decay_score = excluded.decay_score,
+                flagged_at = excluded.flagged_at",
+            params![id, score, now],
         )?;
 
         moved += 1;
     }
 
+    tx.commit()?;
     Ok(moved)
 }
 
@@ -158,8 +157,9 @@ pub fn get_shadow_events(conn: &Connection) -> Result<Vec<ShadowEvent>> {
     let mut events = Vec::new();
 
     let mut stmt = conn.prepare(
-        "SELECT id, timestamp, source, content, meta, ingested_at, content_hash, decay_score, flagged_at
-         FROM shadow
+        "SELECT e.id, e.timestamp, e.source, e.content, e.meta, e.ingested_at, e.content_hash, s.decay_score, s.flagged_at
+         FROM shadow_state s
+         JOIN events e ON e.id = s.event_id
          ORDER BY flagged_at DESC"
     )?;
 
@@ -204,8 +204,7 @@ pub fn unpin_event(conn: &Connection, event_id: &str) -> Result<()> {
 
 /// Restore an event from shadow back to main table
 pub fn restore_from_shadow(conn: &Connection, event_id: &str) -> Result<()> {
-    // Remove from shadow
-    conn.execute("DELETE FROM shadow WHERE id = ?1", [event_id])?;
+    conn.execute("DELETE FROM shadow_state WHERE event_id = ?1", [event_id])?;
 
     // Reset decay tracking
     conn.execute(
@@ -240,7 +239,13 @@ pub fn get_decay_stats(conn: &Connection) -> Result<DecayStats> {
     };
 
     let flagged_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM decay WHERE access_count < ? AND (unixepoch() - last_accessed) > ? * 86400 AND pinned = 0",
+        "SELECT COUNT(*)
+         FROM decay d
+         LEFT JOIN shadow_state s ON d.event_id = s.event_id
+         WHERE d.access_count < ?1
+         AND (unixepoch() - d.last_accessed) > ?2 * 86400
+         AND d.pinned = 0
+         AND s.event_id IS NULL",
         params![ACCESS_COUNT_THRESHOLD, DECAY_THRESHOLD_DAYS],
         |row| row.get(0),
     )?;

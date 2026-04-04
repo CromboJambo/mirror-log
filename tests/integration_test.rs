@@ -398,6 +398,86 @@ mod tests {
 
         fs::remove_file(&db_path).ok();
     }
+
+    #[test]
+    fn test_attention_fresh_db_does_not_require_manual_init() {
+        let db_path = temp_db();
+        let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
+
+        let items = mirror_log::AttentionLayer::default()
+            .get_active_items(&conn)
+            .expect("Fresh DB attention query should succeed");
+
+        assert!(items.is_empty());
+
+        fs::remove_file(&db_path).ok();
+    }
+
+    #[test]
+    fn test_ingest_single_rolls_back_when_chunk_creation_fails() {
+        let db_path = temp_db();
+        let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
+
+        conn.execute("DROP TABLE chunks", [])
+            .expect("Failed to drop chunks table");
+
+        let request = mirror_log::pipeline::IngestRequest::new(
+            "atomic_test",
+            "This content is long enough to require chunking",
+            None,
+        )
+        .with_chunking(1, 10);
+
+        let result = mirror_log::pipeline::ingest_single(&conn, request);
+        assert!(result.is_err());
+
+        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        assert_eq!(total, 0);
+        assert_eq!(unique, 0);
+
+        fs::remove_file(&db_path).ok();
+    }
+
+    #[test]
+    fn test_shadowed_events_are_hidden_from_normal_queries_until_restored() {
+        let db_path = temp_db();
+        let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
+
+        let visible_id = mirror_log::log::append(&conn, "shadow_test", "visible event", None)
+            .expect("Failed to append visible event");
+        let shadowed_id = mirror_log::log::append(&conn, "shadow_test", "shadowed event", None)
+            .expect("Failed to append shadowed event");
+
+        conn.execute(
+            "INSERT INTO decay (event_id, access_count, last_accessed, pinned)
+             VALUES (?1, 0, unixepoch() - 31 * 86400, 0)",
+            [&shadowed_id],
+        )
+        .expect("Failed to seed decay state");
+
+        let moved = mirror_log::move_to_shadow(&conn).expect("Failed to shadow events");
+        assert_eq!(moved, 1);
+
+        let recent = mirror_log::view::recent(&conn, 10).expect("Failed to load recent events");
+        assert_eq!(recent.len(), 1);
+        assert_eq!(recent[0].id, visible_id);
+
+        let shadowed = mirror_log::get_shadow_events(&conn).expect("Failed to load shadow events");
+        assert_eq!(shadowed.len(), 1);
+        assert_eq!(shadowed[0].id, shadowed_id);
+
+        let (total, unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        assert_eq!(total, 1);
+        assert_eq!(unique, 1);
+
+        mirror_log::restore_from_shadow(&conn, &shadowed_id).expect("Failed to restore event");
+
+        let restored = mirror_log::view::recent(&conn, 10).expect("Failed to load recent events");
+        assert_eq!(restored.len(), 2);
+        assert!(restored.iter().any(|event| event.id == shadowed_id));
+
+        fs::remove_file(&db_path).ok();
+    }
 }
 
 #[cfg(test)]

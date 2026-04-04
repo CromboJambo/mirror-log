@@ -72,9 +72,12 @@ impl AttentionLayer {
                 COUNT(DISTINCT el.to_event_id) as link_count
             FROM events e
             LEFT JOIN decay d ON e.id = d.event_id
+            LEFT JOIN shadow_state s ON e.id = s.event_id
             LEFT JOIN event_tags et ON e.id = et.event_id
             LEFT JOIN event_links el ON e.id = el.from_event_id
             WHERE
+                s.event_id IS NULL
+                AND
                 (d.pinned = 1 OR d.last_accessed > unixepoch() - ?1 * 86400)
                 AND NOT EXISTS (
                     SELECT 1 FROM decay
@@ -90,31 +93,39 @@ impl AttentionLayer {
 
         let mut stmt = conn.prepare(query)?;
 
-        let rows = stmt.query_map((self.decay_threshold, 5, self.decay_threshold), |row| {
-            let id: String = row.get(0)?;
-            let timestamp: i64 = row.get(1)?;
-            let source: String = row.get(2)?;
-            let content: String = row.get(3)?;
-            let meta: Option<String> = row.get(4)?;
-            let access_count: i64 = row.get(5)?;
-            let last_accessed: i64 = row.get(6)?;
-            let pinned: bool = row.get(7)?;
-            let tag_count: i64 = row.get(8)?;
-            let link_count: i64 = row.get(9)?;
+        let rows = stmt.query_map(
+            (
+                self.decay_threshold,
+                5,
+                self.decay_threshold,
+                self.max_items,
+            ),
+            |row| {
+                let id: String = row.get(0)?;
+                let timestamp: i64 = row.get(1)?;
+                let source: String = row.get(2)?;
+                let content: String = row.get(3)?;
+                let meta: Option<String> = row.get(4)?;
+                let access_count: i64 = row.get(5)?;
+                let last_accessed: i64 = row.get(6)?;
+                let pinned: bool = row.get(7)?;
+                let tag_count: i64 = row.get(8)?;
+                let link_count: i64 = row.get(9)?;
 
-            Ok(AttentionItem {
-                id,
-                timestamp,
-                source,
-                content,
-                meta,
-                access_count,
-                last_accessed,
-                pinned,
-                tag_count,
-                link_count,
-            })
-        })?;
+                Ok(AttentionItem {
+                    id,
+                    timestamp,
+                    source,
+                    content,
+                    meta,
+                    access_count,
+                    last_accessed,
+                    pinned,
+                    tag_count,
+                    link_count,
+                })
+            },
+        )?;
 
         for item in rows {
             items.push(item?);
@@ -183,9 +194,12 @@ impl AttentionLayer {
                 COUNT(DISTINCT el.to_event_id) as link_count
             FROM events e
             LEFT JOIN decay d ON e.id = d.event_id
+            LEFT JOIN shadow_state s ON e.id = s.event_id
             LEFT JOIN event_tags et ON e.id = et.event_id
             LEFT JOIN event_links el ON e.id = el.from_event_id
             WHERE
+                s.event_id IS NULL
+                AND
                 EXISTS (
                     SELECT 1 FROM decay
                     WHERE event_id = e.id
@@ -246,25 +260,47 @@ impl AttentionLayer {
 
     /// Gets attention statistics
     pub fn get_stats(&self, conn: &Connection) -> Result<AttentionStats> {
-        let total_events: i64 =
-            conn.query_row("SELECT COUNT(*) FROM events", [], |row| row.get(0))?;
+        let total_events: i64 = conn.query_row(
+            "SELECT COUNT(*)
+             FROM events e
+             WHERE NOT EXISTS (
+                 SELECT 1 FROM shadow_state s WHERE s.event_id = e.id
+             )",
+            [],
+            |row| row.get(0),
+        )?;
 
         let active_events: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM decay WHERE last_accessed > unixepoch() - ?1 * 86400",
+            "SELECT COUNT(*)
+             FROM decay d
+             WHERE d.last_accessed > unixepoch() - ?1 * 86400
+             AND NOT EXISTS (
+                 SELECT 1 FROM shadow_state s WHERE s.event_id = d.event_id
+             )",
             (self.decay_threshold,),
             |row| row.get(0),
         )?;
 
-        let pinned_events: i64 =
-            conn.query_row("SELECT COUNT(*) FROM decay WHERE pinned = 1", [], |row| {
-                row.get(0)
-            })?;
+        let pinned_events: i64 = conn.query_row(
+            "SELECT COUNT(*)
+             FROM decay d
+             WHERE d.pinned = 1
+             AND NOT EXISTS (
+                 SELECT 1 FROM shadow_state s WHERE s.event_id = d.event_id
+             )",
+            [],
+            |row| row.get(0),
+        )?;
 
         let flagged_events: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM decay
-             WHERE access_count < ?1
-             AND (unixepoch() - last_accessed) > ?2 * 86400
-             AND pinned = 0",
+            "SELECT COUNT(*)
+             FROM decay d
+             WHERE d.access_count < ?1
+             AND (unixepoch() - d.last_accessed) > ?2 * 86400
+             AND d.pinned = 0
+             AND NOT EXISTS (
+                 SELECT 1 FROM shadow_state s WHERE s.event_id = d.event_id
+             )",
             (5, self.decay_threshold),
             |row| row.get(0),
         )?;
@@ -421,13 +457,5 @@ pub fn init_tables(conn: &Connection) -> Result<()> {
 /// Initializes the attention layer with defaults
 pub fn init_with_defaults(conn: &Connection) -> Result<()> {
     init_tables(conn)?;
-
-    // Set default decay threshold
-    conn.execute(
-        "INSERT INTO attention_decay (id, decay_score, last_decay_check)
-         VALUES ('default', 30.0, unixepoch())",
-        [],
-    )?;
-
     Ok(())
 }

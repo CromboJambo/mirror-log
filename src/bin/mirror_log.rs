@@ -129,6 +129,18 @@ enum Commands {
         /// Event ID to add to attention
         event_id: String,
     },
+
+    /// Detect patterns from staged events and propose reflections
+    Infer,
+
+    /// Review proposed reflections and approve/reject them
+    Review,
+
+    /// Regenerate human.md from declarative base and approved reflections
+    Regenerate {
+        #[arg(long, default_value = "human.md")]
+        output: String,
+    },
 }
 
 #[cfg(feature = "embedding")]
@@ -157,52 +169,50 @@ fn main() {
             source,
             meta,
         } => {
-            let result = pipeline::ingest_single(
-                &conn,
-                pipeline::IngestRequest::new(&source, &content, meta.as_deref()),
-            )
-            .expect("Failed to append event");
+            let event = stage::StagedEvent::new(&source, &content, meta.as_deref());
+            let staging_dir = Path::new("staging");
+            event
+                .save_to_file(staging_dir)
+                .expect("Failed to write staged event");
 
-            if result.chunk_count > 0 {
-                println!(
-                    "Added: {} (created {} chunks)",
-                    result.event_id, result.chunk_count
-                );
-            } else {
-                println!("Added: {}", result.event_id);
-            }
+            println!("Staged: {} (waiting for approval)", event.id);
         }
 
         Commands::AddFile { path, source, meta } => {
             let content = std::fs::read_to_string(&path).expect("Failed to read file");
-            let result = pipeline::ingest_single(
-                &conn,
-                pipeline::IngestRequest::new(&source, &content, meta.as_deref()),
-            )
-            .expect("Failed to append event");
+            let event = stage::StagedEvent::new(&source, &content, meta.as_deref());
+            let staging_dir = Path::new("staging");
+            event
+                .save_to_file(staging_dir)
+                .expect("Failed to write staged event");
 
-            if result.chunk_count > 0 {
-                println!(
-                    "Added file: {} ({}) - created {} chunks",
-                    path.display(),
-                    result.event_id,
-                    result.chunk_count
-                );
-            } else {
-                println!("Added file: {} ({})", path.display(), result.event_id);
-            }
+            println!("Staged file: {} ({})", path.display(), event.id);
         }
 
         Commands::Stdin { source, meta } => {
-            match pipeline::ingest_stdin(&conn, &source, meta.as_deref(), cli.batch_size) {
+            let staging_dir = Path::new("staging");
+            match pipeline::ingest_stdin_with_policy(
+                &conn,
+                &source,
+                meta.as_deref(),
+                cli.batch_size,
+                AUTO_CHUNK_THRESHOLD,
+                DEFAULT_CHUNK_SIZE,
+            ) {
                 Ok(result) => {
-                    println!("Added {} events", result.event_ids.len());
-                    if result.total_chunks > 0 {
-                        println!(
-                            "Structured {} events into {} chunks",
-                            result.chunked_events, result.total_chunks
-                        );
+                    for event_id in result.event_ids {
+                        let event = view::get_by_id(&conn, &event_id)
+                            .expect("Failed to get event from temporary buffer");
+                        let staged_event =
+                            stage::StagedEvent::new(&source, &event.content, event.meta.as_deref());
+                        staged_event
+                            .save_to_file(staging_dir)
+                            .expect("Failed to write staged event");
                     }
+                    println!(
+                        "Staged {} events (waiting for approval)",
+                        result.event_ids.len()
+                    );
                 }
                 Err(e) => {
                     eprintln!("Failed to read from stdin: {}", e);
@@ -349,8 +359,7 @@ fn main() {
         },
 
         Commands::Info => {
-            let (count, oldest, newest) =
-                db::db_info(&conn).expect("Failed to get database info");
+            let (count, oldest, newest) = db::db_info(&conn).expect("Failed to get database info");
 
             println!("Database Info:");
             println!("  Path: {}", db_path.display());
@@ -366,8 +375,7 @@ fn main() {
         }
 
         Commands::Verify => {
-            let report =
-                log::verify_integrity(&conn).expect("Failed to verify database integrity");
+            let report = log::verify_integrity(&conn).expect("Failed to verify database integrity");
             let issues =
                 report.missing_or_invalid_hashes + report.hash_mismatches + report.orphan_chunks;
 
