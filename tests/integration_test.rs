@@ -518,6 +518,8 @@ mod cli_tests {
     #[test]
     fn test_cli_add_basic() {
         let db_path = temp_db();
+        let staging_dir = db_path.parent().unwrap().join("staging_add_basic");
+
         let child = Command::new(get_binary_path())
             .args([
                 "--db",
@@ -527,6 +529,7 @@ mod cli_tests {
                 "--source",
                 "test",
             ])
+            .current_dir(staging_dir.parent().unwrap())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .spawn()
@@ -537,12 +540,16 @@ mod cli_tests {
             .expect("Failed to wait for process");
         assert!(output.status.success());
 
-        let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
-        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
-        assert_eq!(total, 1);
-        assert_eq!(_unique, 1);
+        // `add` now stages events to disk rather than inserting into SQLite
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            stdout.contains("Staged:"),
+            "Expected staging confirmation, got: {}",
+            stdout
+        );
 
         fs::remove_file(&db_path).ok();
+        fs::remove_dir_all(staging_dir.parent().unwrap().join("staging")).ok();
     }
 
     #[test]
@@ -569,11 +576,16 @@ mod cli_tests {
             .expect("Failed to wait for process");
         assert!(output.status.success());
 
-        let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
-        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
-        assert_eq!(total, 1);
+        // `add` now stages events to disk rather than inserting into SQLite
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            stdout.contains("Staged:"),
+            "Expected staging confirmation, got: {}",
+            stdout
+        );
 
         fs::remove_file(&db_path).ok();
+        fs::remove_dir_all("staging").ok();
     }
 
     #[test]
@@ -604,12 +616,17 @@ mod cli_tests {
             .expect("Failed to wait for process");
         assert!(output.status.success());
 
-        let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
-        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
-        assert_eq!(total, 1);
+        // `add-file` now stages events to disk rather than inserting into SQLite
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            stdout.contains("Staged file:"),
+            "Expected staging confirmation, got: {}",
+            stdout
+        );
 
         fs::remove_file(&db_path).ok();
         fs::remove_file(&file_path).ok();
+        fs::remove_dir_all("staging").ok();
     }
 
     #[test]

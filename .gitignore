@@ -11,6 +11,7 @@ target/
 
 # rough notes
 dev_log/
+staging/
 
 # Cargo lock (optional - keep if this is a binary)
 # Cargo.lock

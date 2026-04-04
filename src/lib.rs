@@ -5,6 +5,7 @@ pub mod decay;
 #[cfg(feature = "embedding")]
 pub mod embedding;
 pub mod export;
+pub mod infer;
 #[cfg(feature = "inference")]
 pub mod inference;
 #[cfg(feature = "iteration")]
@@ -26,6 +27,12 @@ pub use view::{by_ingestion_time, dedup_stats, find_duplicates, Event};
 pub use attention::{
     init_tables, init_with_defaults, AttentionItem, AttentionLayer, AttentionStats,
 };
+
+// Re-export staging types
+pub use stage::StagedEvent;
+
+// Re-export inference/pattern types
+pub use infer::{detect_patterns, Pattern};
 
 // Re-export iteration types (only the core types)
 #[cfg(feature = "iteration")]

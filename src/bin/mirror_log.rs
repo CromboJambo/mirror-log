@@ -1,9 +1,9 @@
-use super::stage::StagedEvent;
 use chrono::DateTime;
 use chrono::TimeZone;
 use chrono::Utc;
 use clap::{Parser, Subcommand};
-use mirror_log::{chunk, db, log, pipeline, view};
+use mirror_log::stage::StagedEvent;
+use mirror_log::{chunk, db, infer, log, pipeline, view};
 use std::path::{Path, PathBuf};
 
 #[derive(Parser)]
@@ -134,7 +134,7 @@ enum Commands {
     /// Detect patterns from staged events and propose reflections
     Infer,
 
-    /// Review proposed reflections and approve/reject them
+    /// Review staged events pending approval
     Review,
 
     /// Regenerate human.md from declarative base and approved reflections
@@ -170,7 +170,7 @@ fn main() {
             source,
             meta,
         } => {
-            let event = super::stage::StagedEvent::new(&source, &content, meta.as_deref());
+            let event = StagedEvent::new(&source, &content, meta.as_deref());
             let staging_dir = Path::new("staging");
             event
                 .save_to_file(staging_dir)
@@ -181,7 +181,7 @@ fn main() {
 
         Commands::AddFile { path, source, meta } => {
             let content = std::fs::read_to_string(&path).expect("Failed to read file");
-            let event = super::stage::StagedEvent::new(&source, &content, meta.as_deref());
+            let event = StagedEvent::new(&source, &content, meta.as_deref());
             let staging_dir = Path::new("staging");
             event
                 .save_to_file(staging_dir)
@@ -201,14 +201,11 @@ fn main() {
                 pipeline::DEFAULT_CHUNK_SIZE,
             ) {
                 Ok(result) => {
-                    for event_id in result.event_ids {
-                        let event = view::get_by_id(&conn, &event_id)
+                    for event_id in &result.event_ids {
+                        let event = view::get_by_id(&conn, event_id)
                             .expect("Failed to get event from temporary buffer");
-                        let staged_event = super::stage::StagedEvent::new(
-                            &source,
-                            &event.content,
-                            event.meta.as_deref(),
-                        );
+                        let staged_event =
+                            StagedEvent::new(&source, &event.content, event.meta.as_deref());
                         staged_event
                             .save_to_file(staging_dir)
                             .expect("Failed to write staged event");
@@ -600,50 +597,58 @@ fn main() {
                 }
             }
         }
+
         Commands::Infer => {
-            eprintln!("Inference command not yet implemented");
-            std::process::exit(1);
-        }
-
-        Commands::Review => {
-            use super::stage::StagedEvent;
-            use std::fs;
-
             let staging_dir = Path::new("staging");
 
             if !staging_dir.exists() {
-                println!("No staging directory found");
+                println!("No staging directory found. Stage events first with `mirror-log add`.");
                 return;
             }
 
-            match fs::read_dir(staging_dir) {
-                Ok(entries) => {
-                    let mut events: Vec<StagedEvent> = Vec::new();
-
-                    for entry in entries {
-                        let path = entry.unwrap().path();
-                        if path.extension() == Some(std::ffi::OsStr::new("json")) {
-                            match StagedEvent::from_file(&path) {
-                                Ok(event) => events.push(event),
-                                Err(e) => eprintln!(
-                                    "Failed to parse staging event {}: {}",
-                                    path.display(),
-                                    e
-                                ),
+            match infer::detect_patterns(staging_dir) {
+                Ok(patterns) => {
+                    if patterns.is_empty() {
+                        println!("No patterns detected from staged events.");
+                    } else {
+                        println!("Detected {} pattern(s):\n", patterns.len());
+                        for pattern in &patterns {
+                            println!("{}", pattern.description);
+                            if !pattern.source_events.is_empty() {
+                                println!("  Source events: {}", pattern.source_events.join(", "));
                             }
+                            println!();
                         }
                     }
+                }
+                Err(e) => {
+                    eprintln!("Failed to detect patterns: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
 
+        Commands::Review => {
+            let staging_dir = Path::new("staging");
+
+            match StagedEvent::load_all(staging_dir) {
+                Ok(events) => {
                     if events.is_empty() {
                         println!("No staged events found");
                     } else {
-                        println!("Found {} staged events:", events.len());
-                        for event in events {
-                            println!("\n[{}] {}", event.id, event.source);
-                            println!("Content: {}", event.content);
+                        println!("Found {} staged event(s):\n", events.len());
+                        for event in &events {
+                            println!(
+                                "[{}] {} ({})",
+                                event.id,
+                                event.source,
+                                event.timestamp_utc().format("%Y-%m-%d %H:%M:%S UTC")
+                            );
+                            println!("  Content: {}", event.content);
                             if let Some(meta) = &event.meta {
-                                println!("Meta: {}", meta);
+                                println!("  Meta: {}", meta);
                             }
+                            println!();
                         }
                     }
                 }
@@ -655,46 +660,20 @@ fn main() {
         }
 
         Commands::Regenerate { output } => {
-            use super::stage::StagedEvent;
-            use std::fs;
-
             let staging_dir = Path::new("staging");
 
-            if !staging_dir.exists() {
-                println!("No staging directory found");
-                return;
-            }
-
-            match fs::read_dir(staging_dir) {
-                Ok(entries) => {
-                    let mut events: Vec<StagedEvent> = Vec::new();
-
-                    for entry in entries {
-                        let path = entry.unwrap().path();
-                        if path.extension() == Some(std::ffi::OsStr::new("json")) {
-                            match StagedEvent::from_file(&path) {
-                                Ok(event) => events.push(event),
-                                Err(e) => eprintln!(
-                                    "Failed to parse staging event {}: {}",
-                                    path.display(),
-                                    e
-                                ),
-                            }
-                        }
-                    }
-
+            match StagedEvent::load_all(staging_dir) {
+                Ok(events) => {
                     if events.is_empty() {
-                        println!("No staged events found");
+                        println!("No staged events found — nothing to regenerate.");
                     } else {
-                        println!("Regenerating output for {} events:", events.len());
+                        println!("Regenerating {} with {} event(s)...", output, events.len());
 
-                        // For each event, generate output based on the specified format
-                        for event in events {
+                        for event in &events {
                             let output_content = match output.as_str() {
                                 "json" => serde_json::to_string_pretty(&event)
                                     .unwrap_or_else(|_| event.content.clone()),
-                                "text" => format!("{}: {}", event.source, event.content),
-                                _ => format!("{}: {}", event.source, event.content), // default to text
+                                _ => format!("{}: {}", event.source, event.content),
                             };
 
                             println!("\n{}", output_content);

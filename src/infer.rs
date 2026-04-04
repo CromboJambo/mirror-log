@@ -1,28 +1,8 @@
-use chrono::{DateTime, Duration, Utc};
-use serde_json;
-use std::fs;
+use chrono::{Duration, Utc};
+use std::collections::HashMap;
 use std::path::Path;
 
-#[derive(Debug, Clone)]
-pub struct StagedEvent {
-    pub id: String,
-    pub source: String,
-    pub content: String,
-    pub meta: Option<String>,
-    pub timestamp: i64,
-}
-
-impl StagedEvent {
-    pub fn from_file(path: &Path) -> Result<Self, serde_json::Error> {
-        let content = fs::read_to_string(path)?;
-        let event: Self = serde_json::from_str(&content)?;
-        Ok(event)
-    }
-
-    pub fn timestamp_utc(&self) -> DateTime<Utc> {
-        Utc.timestamp_opt(self.timestamp, 0).unwrap()
-    }
-}
+use crate::stage::StagedEvent;
 
 #[derive(Debug, Clone)]
 pub struct Pattern {
@@ -33,75 +13,58 @@ pub struct Pattern {
 pub fn detect_patterns(staging_dir: &Path) -> Result<Vec<Pattern>, Box<dyn std::error::Error>> {
     let mut patterns = Vec::new();
 
-    // Load all staged events
-    let entries = fs::read_dir(staging_dir)?;
-    let mut events: Vec<StagedEvent> = Vec::new();
+    let events = StagedEvent::load_all(staging_dir)?;
 
-    for entry in entries {
-        let path = entry?.path();
-        if path.extension() == Some(std::ffi::OsStr::new("json")) {
-            match StagedEvent::from_file(&path) {
-                Ok(event) => events.push(event),
-                Err(e) => eprintln!("Failed to parse staging event {}: {}", path.display(), e),
-            }
-        }
+    if events.is_empty() {
+        return Ok(patterns);
     }
-
-    // Sort by timestamp
-    events.sort_by_key(|e| e.timestamp);
 
     let one_week_ago = Utc::now() - Duration::weeks(1);
 
     // Pattern 1: Frequent shell commands (nushell-history)
-    let mut shell_command_counts = std::collections::HashMap::new();
+    let mut shell_command_counts: HashMap<String, (i32, Vec<String>)> = HashMap::new();
     for event in &events {
         if event.source == "nushell-history" && event.timestamp_utc() > one_week_ago {
-            *shell_command_counts
+            let entry = shell_command_counts
                 .entry(event.content.clone())
-                .or_insert(0) += 1;
+                .or_insert((0, Vec::new()));
+            entry.0 += 1;
+            entry.1.push(event.id.clone());
         }
     }
 
-    for (command, count) in shell_command_counts.iter() {
+    for (command, (count, source_ids)) in &shell_command_counts {
         if *count >= 3 {
-            let mut source_ids = Vec::new();
-            for event in &events {
-                if event.source == "nushell-history"
-                    && event.content == *command
-                    && event.timestamp_utc() > one_week_ago
-                {
-                    source_ids.push(event.id.clone());
-                }
-            }
             patterns.push(Pattern {
-                description: format!("* You ran `{}` {} times in the last week — this suggests you rely on it for routine tasks.", command, count),
-                source_events: source_ids,
+                description: format!(
+                    "* You ran `{}` {} times in the last week — this suggests you rely on it for routine tasks.",
+                    command, count
+                ),
+                source_events: source_ids.clone(),
             });
         }
     }
 
     // Pattern 2: Repeated dotfile edits (e.g., .config, .bashrc, .rustfmt.toml)
-    let mut dotfile_edits = std::collections::HashMap::new();
+    let mut dotfile_edits: HashMap<String, (i32, Vec<String>)> = HashMap::new();
     for event in &events {
         if event.source.starts_with("dotfile") && event.timestamp_utc() > one_week_ago {
-            *dotfile_edits.entry(event.content.clone()).or_insert(0) += 1;
+            let entry = dotfile_edits
+                .entry(event.content.clone())
+                .or_insert((0, Vec::new()));
+            entry.0 += 1;
+            entry.1.push(event.id.clone());
         }
     }
 
-    for (content, count) in dotfile_edits.iter() {
+    for (content, (count, source_ids)) in &dotfile_edits {
         if *count >= 2 {
-            let mut source_ids = Vec::new();
-            for event in &events {
-                if event.source.starts_with("dotfile")
-                    && event.content == *content
-                    && event.timestamp_utc() > one_week_ago
-                {
-                    source_ids.push(event.id.clone());
-                }
-            }
             patterns.push(Pattern {
-                description: format!("* You edited a configuration file with content like \"{}\" {} times — this suggests iterative refinement of your workflow.", content, count),
-                source_events: source_ids,
+                description: format!(
+                    "* You edited a configuration file with content like \"{}\" {} times — this suggests iterative refinement of your workflow.",
+                    content, count
+                ),
+                source_events: source_ids.clone(),
             });
         }
     }
