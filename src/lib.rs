@@ -12,6 +12,7 @@ pub mod iteration;
 pub mod log;
 pub mod pipeline;
 pub mod sources;
+pub mod stage;
 pub mod view;
 
 // Re-export commonly used types and functions

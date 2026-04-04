@@ -1,9 +1,10 @@
+use super::stage::StagedEvent;
 use chrono::DateTime;
 use chrono::TimeZone;
 use chrono::Utc;
 use clap::{Parser, Subcommand};
 use mirror_log::{chunk, db, log, pipeline, view};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Parser)]
 #[command(name = "mirror-log")]
@@ -169,7 +170,7 @@ fn main() {
             source,
             meta,
         } => {
-            let event = stage::StagedEvent::new(&source, &content, meta.as_deref());
+            let event = super::stage::StagedEvent::new(&source, &content, meta.as_deref());
             let staging_dir = Path::new("staging");
             event
                 .save_to_file(staging_dir)
@@ -180,7 +181,7 @@ fn main() {
 
         Commands::AddFile { path, source, meta } => {
             let content = std::fs::read_to_string(&path).expect("Failed to read file");
-            let event = stage::StagedEvent::new(&source, &content, meta.as_deref());
+            let event = super::stage::StagedEvent::new(&source, &content, meta.as_deref());
             let staging_dir = Path::new("staging");
             event
                 .save_to_file(staging_dir)
@@ -196,15 +197,18 @@ fn main() {
                 &source,
                 meta.as_deref(),
                 cli.batch_size,
-                AUTO_CHUNK_THRESHOLD,
-                DEFAULT_CHUNK_SIZE,
+                pipeline::AUTO_CHUNK_THRESHOLD,
+                pipeline::DEFAULT_CHUNK_SIZE,
             ) {
                 Ok(result) => {
                     for event_id in result.event_ids {
                         let event = view::get_by_id(&conn, &event_id)
                             .expect("Failed to get event from temporary buffer");
-                        let staged_event =
-                            stage::StagedEvent::new(&source, &event.content, event.meta.as_deref());
+                        let staged_event = super::stage::StagedEvent::new(
+                            &source,
+                            &event.content,
+                            event.meta.as_deref(),
+                        );
                         staged_event
                             .save_to_file(staging_dir)
                             .expect("Failed to write staged event");
@@ -592,6 +596,113 @@ fn main() {
                 Ok(_) => println!("Added event to attention: {}", event_id),
                 Err(e) => {
                     eprintln!("Failed to add event to attention: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
+        Commands::Infer => {
+            eprintln!("Inference command not yet implemented");
+            std::process::exit(1);
+        }
+
+        Commands::Review => {
+            use super::stage::StagedEvent;
+            use std::fs;
+
+            let staging_dir = Path::new("staging");
+
+            if !staging_dir.exists() {
+                println!("No staging directory found");
+                return;
+            }
+
+            match fs::read_dir(staging_dir) {
+                Ok(entries) => {
+                    let mut events: Vec<StagedEvent> = Vec::new();
+
+                    for entry in entries {
+                        let path = entry.unwrap().path();
+                        if path.extension() == Some(std::ffi::OsStr::new("json")) {
+                            match StagedEvent::from_file(&path) {
+                                Ok(event) => events.push(event),
+                                Err(e) => eprintln!(
+                                    "Failed to parse staging event {}: {}",
+                                    path.display(),
+                                    e
+                                ),
+                            }
+                        }
+                    }
+
+                    if events.is_empty() {
+                        println!("No staged events found");
+                    } else {
+                        println!("Found {} staged events:", events.len());
+                        for event in events {
+                            println!("\n[{}] {}", event.id, event.source);
+                            println!("Content: {}", event.content);
+                            if let Some(meta) = &event.meta {
+                                println!("Meta: {}", meta);
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Failed to read staging directory: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
+
+        Commands::Regenerate { output } => {
+            use super::stage::StagedEvent;
+            use std::fs;
+
+            let staging_dir = Path::new("staging");
+
+            if !staging_dir.exists() {
+                println!("No staging directory found");
+                return;
+            }
+
+            match fs::read_dir(staging_dir) {
+                Ok(entries) => {
+                    let mut events: Vec<StagedEvent> = Vec::new();
+
+                    for entry in entries {
+                        let path = entry.unwrap().path();
+                        if path.extension() == Some(std::ffi::OsStr::new("json")) {
+                            match StagedEvent::from_file(&path) {
+                                Ok(event) => events.push(event),
+                                Err(e) => eprintln!(
+                                    "Failed to parse staging event {}: {}",
+                                    path.display(),
+                                    e
+                                ),
+                            }
+                        }
+                    }
+
+                    if events.is_empty() {
+                        println!("No staged events found");
+                    } else {
+                        println!("Regenerating output for {} events:", events.len());
+
+                        // For each event, generate output based on the specified format
+                        for event in events {
+                            let output_content = match output.as_str() {
+                                "json" => serde_json::to_string_pretty(&event)
+                                    .unwrap_or_else(|_| event.content.clone()),
+                                "text" => format!("{}: {}", event.source, event.content),
+                                _ => format!("{}: {}", event.source, event.content), // default to text
+                            };
+
+                            println!("\n{}", output_content);
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Failed to read staging directory: {}", e);
                     std::process::exit(1);
                 }
             }

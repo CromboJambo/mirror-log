@@ -1,7 +1,7 @@
+use chrono::{DateTime, Duration, Utc};
+use serde_json;
 use std::fs;
 use std::path::Path;
-use chrono::{DateTime, Utc, Duration};
-use serde_json;
 
 #[derive(Debug, Clone)]
 pub struct StagedEvent {
@@ -56,7 +56,9 @@ pub fn detect_patterns(staging_dir: &Path) -> Result<Vec<Pattern>, Box<dyn std::
     let mut shell_command_counts = std::collections::HashMap::new();
     for event in &events {
         if event.source == "nushell-history" && event.timestamp_utc() > one_week_ago {
-            *shell_command_counts.entry(event.content.clone()).or_insert(0) += 1;
+            *shell_command_counts
+                .entry(event.content.clone())
+                .or_insert(0) += 1;
         }
     }
 
@@ -64,7 +66,10 @@ pub fn detect_patterns(staging_dir: &Path) -> Result<Vec<Pattern>, Box<dyn std::
         if *count >= 3 {
             let mut source_ids = Vec::new();
             for event in &events {
-                if event.source == "nushell-history" && event.content == *command && event.timestamp_utc() > one_week_ago {
+                if event.source == "nushell-history"
+                    && event.content == *command
+                    && event.timestamp_utc() > one_week_ago
+                {
                     source_ids.push(event.id.clone());
                 }
             }
@@ -87,7 +92,10 @@ pub fn detect_patterns(staging_dir: &Path) -> Result<Vec<Pattern>, Box<dyn std::
         if *count >= 2 {
             let mut source_ids = Vec::new();
             for event in &events {
-                if event.source.starts_with("dotfile") && event.content == *content && event.timestamp_utc() > one_week_ago {
+                if event.source.starts_with("dotfile")
+                    && event.content == *content
+                    && event.timestamp_utc() > one_week_ago
+                {
                     source_ids.push(event.id.clone());
                 }
             }
@@ -100,9 +108,15 @@ pub fn detect_patterns(staging_dir: &Path) -> Result<Vec<Pattern>, Box<dyn std::
 
     // Pattern 3: Sensitive content (e.g., passwords, keys)
     for event in &events {
-        if event.content.contains("password") || event.content.contains("secret") || event.content.contains("key=") {
+        if event.content.contains("password")
+            || event.content.contains("secret")
+            || event.content.contains("key=")
+        {
             patterns.push(Pattern {
-                description: format!("* You entered sensitive data: \"{}\" — consider using a password manager.", event.content),
+                description: format!(
+                    "* You entered sensitive data: \"{}\" — consider using a password manager.",
+                    event.content
+                ),
                 source_events: vec![event.id.clone()],
             });
         }
@@ -110,16 +124,3 @@ pub fn detect_patterns(staging_dir: &Path) -> Result<Vec<Pattern>, Box<dyn std::
 
     Ok(patterns)
 }
-```
-
-This `infer.rs` module:
-
-- Reads all `.json` files from `staging/`
-- Detects 3 patterns:
-  1. Frequent shell commands (≥3 in last week)
-  2. Repeated dotfile edits (≥2 in last week)
-  3. Sensitive content (password, secret, key=)
-
-Each pattern returns a Markdown-friendly description + list of source event IDs for traceability.
-
-Next step: implement `mirror-log infer` CLI command to run this and output proposed reflections.
