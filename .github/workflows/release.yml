@@ -99,7 +99,3 @@ jobs:
           target_commitish: ${{ github.sha }}
           files: target/${{ env.BIN_NAME }}-${{ env.RELEASE_REF_NAME }}-linux-x86_64.tar.gz
           generate_release_notes: true
-
-      - name: Publish to crates.io
-        if: ${{ secrets.CARGO_TOKEN != '' }}
-        run: cargo publish --token ${{ secrets.CARGO_TOKEN }}
